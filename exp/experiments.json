@@ -1,0 +1,62 @@
+[{
+    "emb_size": 300,
+    "hid_size": 300,
+    "lr": 1.5,
+    "clip": 5,
+    "n_layers": 1,
+    "emb_drop": 0.1,
+    "out_drop": 0.1,
+    "tying": false,
+    "var_drop": false,
+    "EPOCHS": 120,
+    "OPT": "SGD",
+    "PAT": 5,
+    "tag":"general",
+    "arch":"LSTM"
+},
+
+
+[
+
+    {
+        "lr":1.8,
+        "OPT": "ASGD",
+        "emb_drop": 0.25,
+        "out_drop": 0.25,
+        "var_drop": true,
+        "tying": true,
+        "EPOCHS": 160,
+        "tag":"ablation"
+    },
+    {
+        "lr":1.5,
+        "OPT": "ASGD",
+        "emb_drop": 0.25,
+        "out_drop": 0.25,
+        "var_drop": true,
+        "tying": true,
+        "EPOCHS": 160,
+        "tag":"asgd lr"
+    },
+    {
+        "lr":2,
+        "OPT": "ASGD",
+        "emb_drop": 0.25,
+        "out_drop": 0.25,
+        "var_drop": true,
+        "tying": true,
+        "EPOCHS": 160,
+        "tag":"asgd lr"
+    },
+    {
+        "lr":2.3,
+        "OPT": "ASGD",
+        "emb_drop": 0.25,
+        "out_drop": 0.25,
+        "var_drop": true,
+        "tying": true,
+        "EPOCHS": 160,
+        "tag":"asgd lr"
+    }
+    
+]]
