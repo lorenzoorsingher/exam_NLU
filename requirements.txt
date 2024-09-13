@@ -1,0 +1,11 @@
+wandb
+torch
+tqdm
+matplotlib
+matplotlib-inline
+numpy
+python-dotenv
+numpy
+
+torch==2.2.0
+wheel==0.41.2
