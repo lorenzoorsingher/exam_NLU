@@ -12,6 +12,7 @@ glob_args = get_args()
 
 if glob_args["json"] == "":
     FROM_JSON = False
+    WANDB_SECRET = ""
 else:
     FROM_JSON = True
     json_path = glob_args["json"]
@@ -46,6 +47,7 @@ else:
         "var_drop": False,
         "EPOCHS": 99,
         "OPT": "SGD",
+        "PAT": 5,
         "tag": "general",
         "arch": "LSTM",
     }

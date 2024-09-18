@@ -9,7 +9,7 @@ import argparse
 import random
 
 import math
-import tqdm
+from tqdm import tqdm
 import wandb
 
 import os
@@ -367,7 +367,7 @@ def get_args():
         "--save-path",
         type=str,
         help="Set checkpoint save path",
-        default="assignment_1/checkpoints/",
+        default="LM/part_1/bin/",
         metavar="",
     )
 
