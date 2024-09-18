@@ -9,3 +9,4 @@ PennTreeBank
 
 .env
 
+*.pt
