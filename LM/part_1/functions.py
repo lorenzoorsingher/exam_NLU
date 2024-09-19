@@ -2,7 +2,7 @@ from time import time, localtime, strftime
 from torch import nn, optim
 from functools import partial
 
-from model import LM_LSTM_TWO
+from model import LM_SUPERMODEL
 from utils import Lang, read_file, get_vocab
 from utils import PennTreeBank, DataLoader, collate_fn
 import argparse
@@ -125,7 +125,7 @@ def run_experiments(defaults, experiments, glob_args):
 
         vocab_len = len(lang.word2id)
 
-        model = LM_LSTM_TWO(
+        model = LM_SUPERMODEL(
             emb_size,
             hid_size,
             vocab_len,
@@ -201,7 +201,6 @@ def run_experiments(defaults, experiments, glob_args):
         sampled_epochs = []
         best_ppl = math.inf
         best_model = None
-        best_epoch = -1
         pbar = tqdm(range(1, EPOCHS))
 
         for epoch in pbar:
@@ -230,7 +229,6 @@ def run_experiments(defaults, experiments, glob_args):
 
                 if ppl_dev < best_ppl:  # the lower, the better
                     best_ppl = ppl_dev
-                    best_epoch = epoch
                     patience = PAT
                     best_model = copy.deepcopy(model).to("cpu")
                 else:
@@ -274,6 +272,14 @@ def run_experiments(defaults, experiments, glob_args):
         print("Best ppl: ", best_ppl)
         print("Test ppl: ", final_ppl)
         if LOG:
+            wandb.log(
+                {
+                    "ppl": ppl_dev,
+                    "ppl_train": ppl_train,
+                    "loss": loss_dev,
+                    "test_ppl": final_ppl,
+                }
+            )
             wandb.finish()
 
 

@@ -19,7 +19,7 @@ class VarDropout(nn.Module):
         return (x * full_mask) * (1.0 / (1.0 - self.p))
 
 
-class LM_LSTM_TWO(nn.Module):
+class LM_SUPERMODEL(nn.Module):
     def __init__(
         self,
         emb_size,
@@ -33,7 +33,7 @@ class LM_LSTM_TWO(nn.Module):
         arch="LSTM",
         n_layers=1,
     ):
-        super(LM_LSTM_TWO, self).__init__()
+        super(LM_SUPERMODEL, self).__init__()
 
         if tie:
             if hidden_size != emb_size:
