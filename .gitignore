@@ -11,3 +11,4 @@ wandb
 
 *.pt
 run.sh
+res.txt
