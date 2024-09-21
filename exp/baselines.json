@@ -18,16 +18,9 @@
 
   [
     {
-      "lr": 2,
-      "OPT": "SGD",
-      "arch": "LSTM",
-      "EPOCHS": 250,
-      "tag": "baseline"
-    },
-    {
       "lr": 2.5,
       "OPT": "SGD",
-      "arch": "LSTM",
+      "arch": "RNN",
       "EPOCHS": 250,
       "tag": "baseline"
     }
