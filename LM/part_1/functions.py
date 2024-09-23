@@ -1,4 +1,3 @@
-from time import time, localtime, strftime
 from torch import nn, optim
 from functools import partial
 
@@ -96,10 +95,6 @@ def run_experiments(defaults, experiments, glob_args):
     dev_raw = read_file(DATASET_PATH + "ptb.valid.txt")
     test_raw = read_file(DATASET_PATH + "ptb.test.txt")
 
-    # Vocab is computed only on training set
-    # We add two special tokens end of sentence and padding
-    vocab = get_vocab(train_raw, ["<pad>", "<eos>"])
-
     lang = Lang(train_raw, ["<pad>", "<eos>"])
 
     train_dataset = PennTreeBank(train_raw, lang)
@@ -107,7 +102,7 @@ def run_experiments(defaults, experiments, glob_args):
     test_dataset = PennTreeBank(test_raw, lang)
 
     # Dataloader instantiation
-    print(f"Using Train BS: {TRAIN_BS}, Dev BS: {DEV_BS}, Test BS: {TEST_BS}")
+    print(f"[TRAIN] Using Train BS: {TRAIN_BS}, Dev BS: {DEV_BS}, Test BS: {TEST_BS}")
 
     train_loader = DataLoader(
         train_dataset,
@@ -180,7 +175,7 @@ def run_experiments(defaults, experiments, glob_args):
         )
         os.mkdir(run_path)
 
-        print("starting ", run_name)
+        print("[TRAIN] Starting ", run_name)
 
         # start a new wandb run to track this script
         if LOG:
@@ -260,7 +255,7 @@ def run_experiments(defaults, experiments, glob_args):
 
             if patience <= 0:  # Early stopping with patience
                 if OPT == "ASGD" and "t0" not in optimizer.param_groups[0]:
-                    print("AverageSGD triggered")
+                    print("[TRAIN] AverageSGD triggered")
                     optimizer = torch.optim.ASGD(
                         model.parameters(), lr=lr, t0=0, lambd=0.0
                     )
@@ -276,8 +271,8 @@ def run_experiments(defaults, experiments, glob_args):
         checkpoint_path = run_path + "best.pt"
         torch.save(best_model.state_dict(), checkpoint_path)
 
-        print("Best ppl: ", best_ppl)
-        print("Test ppl: ", test_ppl)
+        print("[TRAIN] Best ppl: ", best_ppl)
+        print("[TRAIN] Test ppl: ", test_ppl)
         if LOG:
             wandb.log(
                 {
