@@ -18,30 +18,6 @@
 
   [
     {
-      "lr": 1.5,
-      "emb_drop": 0.25,
-      "out_drop": 0.25,
-      "arch": "LSTM",
-      "EPOCHS": 250,
-      "tag": "lastrun"
-    },
-    {
-      "lr": 1.5,
-      "emb_drop": 0.35,
-      "out_drop": 0.35,
-      "arch": "LSTM",
-      "EPOCHS": 250,
-      "tag": "lastrun"
-    },
-    {
-      "lr": 2,
-      "emb_drop": 0.35,
-      "out_drop": 0.35,
-      "arch": "LSTM",
-      "EPOCHS": 250,
-      "tag": "lastrun"
-    },
-    {
       "lr": 2.5,
       "emb_drop": 0.35,
       "out_drop": 0.35,
