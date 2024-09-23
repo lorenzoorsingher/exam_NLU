@@ -366,6 +366,8 @@ def run_tests(defaults, experiments, glob_args):
         for path in paths_list[::-1]:
             if run_name == path[:-6]:
                 weights_path = SAVE_PATH + path + "/best.pt"
+                if not os.path.exists(weights_path):
+                    weights_path = ""
                 break
 
         if weights_path == "":
