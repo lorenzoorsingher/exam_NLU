@@ -16,6 +16,7 @@ import os
 import torch
 import numpy as np
 import copy
+from pathlib import Path
 
 
 def train_loop(data, optimizer, criterion, model, clip=5):
@@ -162,10 +163,10 @@ def run_experiments(defaults, experiments, glob_args):
         model.apply(init_weights)
 
         if OPT == "SGD" or OPT == "ASGD":
-            print("Using ", OPT)
+            print("[MODEL] Using ", OPT)
             optimizer = optim.SGD(model.parameters(), lr=lr)
         else:
-            print("Using AdamW")
+            print("[MODEL] Using AdamW")
             optimizer = optim.AdamW(model.parameters(), lr=lr)
 
         criterion_train = nn.CrossEntropyLoss(ignore_index=lang.word2id["<pad>"])
@@ -287,6 +288,107 @@ def run_experiments(defaults, experiments, glob_args):
                 }
             )
             wandb.finish()
+
+
+def run_tests(defaults, experiments, glob_args):
+
+    TEST_BS = glob_args["test_batch_size"]
+
+    SAVE_PATH = glob_args["save_path"]
+    DEVICE = "cuda:0"  # it can be changed with 'cpu' if you do not have a gpu
+
+    DATASET_PATH = "LM/part_1/dataset/PennTreeBank/"
+
+    train_raw = read_file(DATASET_PATH + "ptb.train.txt")
+    test_raw = read_file(DATASET_PATH + "ptb.test.txt")
+
+    lang = Lang(train_raw, ["<pad>", "<eos>"])
+
+    test_dataset = PennTreeBank(test_raw, lang)
+
+    # Dataloader instantiation
+    print(f"Using Test BS: {TEST_BS}")
+
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=TEST_BS,
+        collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"], device=DEVICE),
+    )
+
+    results = []
+
+    for exp in experiments:
+
+        args = defaults | exp
+
+        print("[TEST]", args)
+
+        emb_size = args["emb_size"]
+        hid_size = args["hid_size"]
+        lr = args["lr"]
+        n_layers = args["n_layers"]
+        emb_drop = args["emb_drop"]
+        out_drop = args["out_drop"]
+        tying = args["tying"]
+        var_drop = args["var_drop"]
+        OPT = args["OPT"]
+        tag = args["tag"]
+        arch = args["arch"]
+        device = "cuda:0"
+
+        vocab_len = len(lang.word2id)
+
+        model = LM_MODEL(
+            emb_size,
+            hid_size,
+            vocab_len,
+            tie=tying,
+            out_dropout=out_drop,
+            emb_dropout=emb_drop,
+            n_layers=n_layers,
+            var_drop=var_drop,
+            pad_index=lang.word2id["<pad>"],
+            arch=arch,
+        ).to(device)
+
+        criterion_eval = nn.CrossEntropyLoss(
+            ignore_index=lang.word2id["<pad>"], reduction="sum"
+        )
+
+        # build run folder
+        run_name, _ = build_run_name(
+            arch, emb_drop, out_drop, lr, var_drop, tying, OPT, SAVE_PATH
+        )
+
+        run_name = run_name[:-6]
+        print("[TEST] Loading model ", run_name)
+
+        paths = sorted(Path(SAVE_PATH).iterdir(), key=os.path.getmtime)
+
+        paths_list = [path.stem for path in paths]
+
+        weights_path = ""
+        for path in paths_list[::-1]:
+            if run_name == path[:-6]:
+                weights_path = SAVE_PATH + path + "/best.pt"
+                break
+
+        if weights_path == "":
+            print("[TEST] Model not found ", run_name)
+            continue
+
+        model.load_state_dict(torch.load(weights_path, weights_only=True))
+
+        model.to(device)
+        test_ppl, _ = eval_loop(test_loader, criterion_eval, model)
+        results.append([args, test_ppl])
+
+    print("\n\n\nFinal Results: \n")
+    print("PPL\tmodel\tdrop\tlr\tOPT\tVD\tWT")
+    for args, ppl in results:
+        print(
+            f"{round(ppl, 2)}\t{args['arch']}\t{args['emb_drop']}+{args['out_drop']}\t{args['lr']}\t{args['OPT']}\t{args['var_drop']}\t{args['tying']}"
+        )
 
 
 def init_weights(mat):

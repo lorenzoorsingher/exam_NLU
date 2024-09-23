@@ -4,7 +4,7 @@ import json
 from dotenv import load_dotenv
 
 
-from functions import get_args, run_experiments
+from functions import get_args, run_experiments, run_tests
 
 
 # load args
@@ -70,4 +70,4 @@ if TRAIN:
     run_experiments(defaults, experiments, glob_args)
 
 if TEST:
-    pass
+    run_tests(defaults, experiments, glob_args)

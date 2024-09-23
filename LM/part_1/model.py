@@ -37,18 +37,18 @@ class LM_MODEL(nn.Module):
 
         if tie:
             if hidden_size != emb_size:
-                print("WARNING: hidden size and emb size do not match")
+                print("[MODEL] WARNING: hidden size and emb size do not match")
             hidden_size = emb_size
 
         self.embedding = nn.Embedding(output_size, emb_size, padding_idx=pad_index)
 
         if arch == "RNN":
-            print("Using RNN")
+            print("[MODEL] Using RNN")
             self.rnn = nn.RNN(
                 emb_size, hidden_size, n_layers, bidirectional=False, batch_first=True
             )
         else:
-            print("Using LSTM")
+            print("[MODEL] Using LSTM")
             self.rnn = nn.LSTM(
                 emb_size, hidden_size, n_layers, bidirectional=False, batch_first=True
             )
@@ -62,11 +62,11 @@ class LM_MODEL(nn.Module):
             self.decoder.weight = self.embedding.weight
 
         if var_drop:
-            print("Using VarDrop")
+            print("[MODEL] Using VarDrop")
             self.drop_emb = VarDropout(p=emb_dropout)
             self.drop_dec = VarDropout(p=out_dropout)
         else:
-            print("Using Drop")
+            print("[MODEL] Using Drop")
             self.drop_emb = nn.Dropout(p=emb_dropout)
             self.drop_dec = nn.Dropout(p=out_dropout)
 
