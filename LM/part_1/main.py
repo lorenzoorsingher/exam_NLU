@@ -7,9 +7,11 @@ from dotenv import load_dotenv
 from functions import get_args, run_experiments
 
 
+# load args
 load_dotenv()
 glob_args = get_args()
 
+# load experiments from json if provided
 if glob_args["json"] == "":
     FROM_JSON = False
     WANDB_SECRET = ""
@@ -18,13 +20,14 @@ else:
     json_path = glob_args["json"]
     WANDB_SECRET = glob_args["wandb_secret"]
 
+# set up loggin if required
 LOG = not glob_args["no_log"]
 if LOG:
     if WANDB_SECRET == "":
         WANDB_SECRET = os.getenv("WANDB_SECRET")
     wandb.login(key=WANDB_SECRET)
 
-
+# parse and prepare experiments
 if FROM_JSON:
     print("loading from json...")
     if os.path.exists(json_path):

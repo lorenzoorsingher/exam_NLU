@@ -1,0 +1,132 @@
+[
+  {
+    "emb_size": 300,
+    "hid_size": 300,
+    "lr": 1.5,
+    "clip": 5,
+    "n_layers": 1,
+    "emb_drop": 0,
+    "out_drop": 0,
+    "tying": false,
+    "var_drop": false,
+    "EPOCHS": 120,
+    "OPT": "SGD",
+    "PAT": 5,
+    "tag": "general",
+    "arch": "LSTM"
+  },
+
+  [
+    {
+      "lr": 1.5,
+      "tying": true,
+      "arch": "LSTM",
+      "EPOCHS": 250,
+      "tag": "lastrun"
+    },
+    {
+      "lr": 2,
+      "tying": true,
+      "arch": "LSTM",
+      "EPOCHS": 250,
+      "tag": "lastrun"
+    },
+    {
+      "lr": 2.5,
+      "tying": true,
+      "arch": "LSTM",
+      "EPOCHS": 250,
+      "tag": "lastrun"
+    },
+    {
+      "lr": 1.5,
+      "var_drop": true,
+      "arch": "LSTM",
+      "emb_drop": 0.35,
+      "out_drop": 0.35,
+      "EPOCHS": 250,
+      "tag": "lastrun"
+    },
+    {
+      "lr": 2,
+      "var_drop": true,
+      "arch": "LSTM",
+      "emb_drop": 0.35,
+      "out_drop": 0.35,
+      "EPOCHS": 250,
+      "tag": "lastrun"
+    },
+    {
+      "lr": 2.5,
+      "var_drop": true,
+      "arch": "LSTM",
+      "emb_drop": 0.35,
+      "out_drop": 0.35,
+      "EPOCHS": 250,
+      "tag": "lastrun"
+    },
+    {
+      "lr": 1.5,
+      "var_drop": true,
+      "tying": true,
+      "arch": "LSTM",
+      "emb_drop": 0.35,
+      "out_drop": 0.35,
+      "EPOCHS": 250,
+      "tag": "lastrun"
+    },
+    {
+      "lr": 2,
+      "var_drop": true,
+      "tying": true,
+      "arch": "LSTM",
+      "emb_drop": 0.35,
+      "out_drop": 0.35,
+      "EPOCHS": 250,
+      "tag": "lastrun"
+    },
+    {
+      "lr": 2.5,
+      "var_drop": true,
+      "tying": true,
+      "arch": "LSTM",
+      "emb_drop": 0.35,
+      "out_drop": 0.35,
+      "EPOCHS": 250,
+      "tag": "lastrun"
+    },
+    {
+      "lr": 1.5,
+      "var_drop": true,
+      "tying": true,
+      "arch": "LSTM",
+      "emb_drop": 0.35,
+      "out_drop": 0.35,
+      "OPT": "ASGD",
+      "EPOCHS": 250,
+      "tag": "lastrun"
+    },
+    {
+      "lr": 2,
+      "var_drop": true,
+      "tying": true,
+      "arch": "LSTM",
+      "emb_drop": 0.35,
+      "out_drop": 0.35,
+      "OPT": "ASGD",
+      "EPOCHS": 250,
+      "tag": "lastrun"
+    },
+    {
+      "lr": 2.5,
+      "var_drop": true,
+      "tying": true,
+      "arch": "LSTM",
+      "emb_drop": 0.35,
+      "out_drop": 0.35,
+      "OPT": "ASGD",
+      "EPOCHS": 250,
+      "tag": "lastrun"
+    }
+  ]
+]

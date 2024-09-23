@@ -154,7 +154,7 @@ def run_experiments(defaults, experiments, glob_args):
 
         # build run folder
 
-        run_name = f"{emb_size}_{hid_size}_{int(emb_drop*100)}_{int(out_drop*100)}_{str(lr).replace('.','-')}"
+        run_name = f"{arch}_{emb_size}_{hid_size}_{int(emb_drop*100)}_{int(out_drop*100)}_{str(lr).replace('.','-')}"
 
         if var_drop:
             run_name += "_VD"
@@ -180,6 +180,7 @@ def run_experiments(defaults, experiments, glob_args):
                 name=run_name,
                 config={
                     "model": str(type(model).__name__),
+                    "arch": arch,
                     "lr": lr,
                     "optim": str(type(optimizer).__name__),
                     "clip": clip,
@@ -195,10 +196,7 @@ def run_experiments(defaults, experiments, glob_args):
 
         EPOCHS = args["EPOCHS"]
         PAT = args["PAT"]
-        SAVE_RATE = 3
-        losses_train = []
-        losses_dev = []
-        sampled_epochs = []
+        SAVE_RATE = 10000000
         best_ppl = math.inf
         best_model = None
         pbar = tqdm(range(1, EPOCHS))
@@ -209,8 +207,6 @@ def run_experiments(defaults, experiments, glob_args):
             )
 
             if epoch % 1 == 0:
-                sampled_epochs.append(epoch)
-                losses_train.append(np.asarray(loss).mean())
 
                 if "t0" in optimizer.param_groups[0]:
                     tmp = {}
@@ -225,7 +221,6 @@ def run_experiments(defaults, experiments, glob_args):
 
                 else:
                     ppl_dev, loss_dev = eval_loop(dev_loader, criterion_eval, model)
-                losses_dev.append(np.asarray(loss_dev).mean())
 
                 if ppl_dev < best_ppl:  # the lower, the better
                     best_ppl = ppl_dev
@@ -244,7 +239,7 @@ def run_experiments(defaults, experiments, glob_args):
                 )
                 if LOG:
                     wandb.log(
-                        {"ppl": ppl_dev, "ppl_train": ppl_train, "loss": loss_dev}
+                        {"ppl_dev": ppl_dev, "ppl_train": ppl_train, "loss": loss_dev}
                     )
 
             if epoch % SAVE_RATE == 0:
@@ -267,17 +262,19 @@ def run_experiments(defaults, experiments, glob_args):
         torch.save(model.state_dict(), checkpoint_path)
 
         best_model.to(device)
-        final_ppl, _ = eval_loop(test_loader, criterion_eval, best_model)
+        test_ppl, _ = eval_loop(test_loader, criterion_eval, best_model)
+        checkpoint_path = run_path + "best.pt"
+        torch.save(best_model.state_dict(), checkpoint_path)
 
         print("Best ppl: ", best_ppl)
-        print("Test ppl: ", final_ppl)
+        print("Test ppl: ", test_ppl)
         if LOG:
             wandb.log(
                 {
                     "ppl": ppl_dev,
                     "ppl_train": ppl_train,
                     "loss": loss_dev,
-                    "test_ppl": final_ppl,
+                    "test_ppl": test_ppl,
                 }
             )
             wandb.finish()
