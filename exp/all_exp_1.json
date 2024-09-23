@@ -19,58 +19,6 @@
   [
     {
       "lr": 1.5,
-      "arch": "RNN",
-      "EPOCHS": 250,
-      "tag": "lastrun"
-    },
-    {
-      "lr": 2,
-      "arch": "RNN",
-      "EPOCHS": 250,
-      "tag": "lastrun"
-    },
-    {
-      "lr": 2.5,
-      "arch": "RNN",
-      "EPOCHS": 250,
-      "tag": "lastrun"
-    },
-    {
-      "lr": 1.5,
-      "arch": "LSTM",
-      "EPOCHS": 250,
-      "tag": "lastrun"
-    },
-    {
-      "lr": 2,
-      "arch": "LSTM",
-      "EPOCHS": 250,
-      "tag": "lastrun"
-    },
-    {
-      "lr": 2.5,
-      "arch": "LSTM",
-      "EPOCHS": 250,
-      "tag": "lastrun"
-    },
-    {
-      "lr": 1.5,
-      "emb_drop": 0.25,
-      "out_drop": 0,
-      "arch": "LSTM",
-      "EPOCHS": 250,
-      "tag": "lastrun"
-    },
-    {
-      "lr": 1.5,
-      "emb_drop": 0,
-      "out_drop": 0.25,
-      "arch": "LSTM",
-      "EPOCHS": 250,
-      "tag": "lastrun"
-    },
-    {
-      "lr": 1.5,
       "emb_drop": 0.25,
       "out_drop": 0.25,
       "arch": "LSTM",
