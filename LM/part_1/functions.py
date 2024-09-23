@@ -2,7 +2,7 @@ from time import time, localtime, strftime
 from torch import nn, optim
 from functools import partial
 
-from model import LM_SUPERMODEL
+from model import LM_MODEL
 from utils import Lang, read_file, get_vocab
 from utils import PennTreeBank, DataLoader, collate_fn
 import argparse
@@ -125,7 +125,7 @@ def run_experiments(defaults, experiments, glob_args):
 
         vocab_len = len(lang.word2id)
 
-        model = LM_SUPERMODEL(
+        model = LM_MODEL(
             emb_size,
             hid_size,
             vocab_len,
