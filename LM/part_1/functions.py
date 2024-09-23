@@ -154,7 +154,9 @@ def run_experiments(defaults, experiments, glob_args):
 
         # build run folder
 
-        run_name = f"{arch}_{emb_size}_{hid_size}_{int(emb_drop*100)}_{int(out_drop*100)}_{str(lr).replace('.','-')}"
+        run_name = (
+            f"{arch}_{int(emb_drop*100)}_{int(out_drop*100)}_{str(lr).replace('.','-')}"
+        )
 
         if var_drop:
             run_name += "_VD"
