@@ -58,6 +58,27 @@ def eval_loop(data, eval_criterion, model):
     return ppl, loss_to_return
 
 
+def build_run_name(arch, emb_drop, out_drop, lr, var_drop, tying, OPT, SAVE_PATH):
+    run_name = (
+        f"{arch}_{int(emb_drop*100)}_{int(out_drop*100)}_{str(lr).replace('.','-')}"
+    )
+
+    if var_drop:
+        run_name += "_VD"
+    if tying:
+        run_name += "_TIE"
+    run_name += "_" + str(OPT)
+
+    run_name += "_" + generate_id(5)
+    run_path = SAVE_PATH + run_name + "/"
+
+    if os.path.exists(run_path):
+        while os.path.exists(run_path):
+            run_name += "_" + generate_id(5)
+            run_path = SAVE_PATH + run_name + "/"
+    return run_name, run_path
+
+
 def run_experiments(defaults, experiments, glob_args):
 
     TRAIN_BS = glob_args["train_batch_size"]
@@ -153,26 +174,12 @@ def run_experiments(defaults, experiments, glob_args):
         )
 
         # build run folder
-
-        run_name = (
-            f"{arch}_{int(emb_drop*100)}_{int(out_drop*100)}_{str(lr).replace('.','-')}"
+        run_name, run_path = build_run_name(
+            arch, emb_drop, out_drop, lr, var_drop, tying, OPT, SAVE_PATH
         )
-
-        if var_drop:
-            run_name += "_VD"
-        if tying:
-            run_name += "_TIE"
-        run_name += "_" + str(OPT)
-
-        run_name += "_" + generate_id(5)
-        run_path = SAVE_PATH + run_name + "/"
-
-        if os.path.exists(run_path):
-            while os.path.exists(run_path):
-                run_name += "_" + generate_id(5)
-                run_path = SAVE_PATH + run_name + "/"
-        print("starting ", run_name)
         os.mkdir(run_path)
+
+        print("starting ", run_name)
 
         # start a new wandb run to track this script
         if LOG:
@@ -314,6 +321,20 @@ def get_args():
     parser = argparse.ArgumentParser(
         prog="main.py",
         description="""Get the params""",
+    )
+
+    parser.add_argument(
+        "--train",
+        action="store_true",
+        help="Run training",
+        default=False,
+    )
+
+    parser.add_argument(
+        "--test",
+        action="store_true",
+        help="Run tests",
+        default=False,
     )
 
     parser.add_argument(

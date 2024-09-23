@@ -20,6 +20,9 @@ else:
     json_path = glob_args["json"]
     WANDB_SECRET = glob_args["wandb_secret"]
 
+TRAIN = glob_args["train"]
+TEST = glob_args["test"]
+
 # set up loggin if required
 LOG = not glob_args["no_log"]
 if LOG:
@@ -63,4 +66,8 @@ else:
         }
     ]
 
-run_experiments(defaults, experiments, glob_args)
+if TRAIN:
+    run_experiments(defaults, experiments, glob_args)
+
+if TEST:
+    pass
