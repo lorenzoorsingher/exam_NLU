@@ -383,8 +383,11 @@ def run_tests(defaults, experiments, glob_args):
     print("\n\n\nFinal Results: \n")
     print("PPL\tmodel\tdrop\tlr\tOPT\tVD\tWT")
     for args, ppl in results:
+
+        emb_drop = int(args["emb_drop"] * 100)
+        out_drop = int(args["out_drop"] * 100)
         print(
-            f"{round(ppl, 2)}\t{args['arch']}\t{args['emb_drop']}+{args['out_drop']}\t{args['lr']}\t{args['OPT']}\t{args['var_drop']}\t{args['tying']}"
+            f"{round(ppl, 2)}\t{args['arch']}\t{emb_drop}+{out_drop}\t{args['lr']}\t{args['OPT']}\t{args['var_drop']}\t{args['tying']}"
         )
 
 
