@@ -58,27 +58,6 @@ def eval_loop(data, eval_criterion, model):
     return ppl, loss_to_return
 
 
-def build_run_name(arch, emb_drop, out_drop, lr, var_drop, tying, OPT, SAVE_PATH):
-    run_name = (
-        f"{arch}_{int(emb_drop*100)}_{int(out_drop*100)}_{str(lr).replace('.','-')}"
-    )
-
-    if var_drop:
-        run_name += "_VD"
-    if tying:
-        run_name += "_TIE"
-    run_name += "_" + str(OPT)
-
-    run_name += "_" + generate_id(5)
-    run_path = SAVE_PATH + run_name + "/"
-
-    if os.path.exists(run_path):
-        while os.path.exists(run_path):
-            run_name += "_" + generate_id(5)
-            run_path = SAVE_PATH + run_name + "/"
-    return run_name, run_path
-
-
 def run_experiments(defaults, experiments, glob_args):
 
     TRAIN_BS = glob_args["train_batch_size"]
@@ -412,6 +391,27 @@ def init_weights(mat):
                 torch.nn.init.uniform_(m.weight, -0.01, 0.01)
                 if m.bias != None:
                     m.bias.data.fill_(0.01)
+
+
+def build_run_name(arch, emb_drop, out_drop, lr, var_drop, tying, OPT, SAVE_PATH):
+    run_name = (
+        f"{arch}_{int(emb_drop*100)}_{int(out_drop*100)}_{str(lr).replace('.','-')}"
+    )
+
+    if var_drop:
+        run_name += "_VD"
+    if tying:
+        run_name += "_TIE"
+    run_name += "_" + str(OPT)
+
+    run_name += "_" + generate_id(5)
+    run_path = SAVE_PATH + run_name + "/"
+
+    if os.path.exists(run_path):
+        while os.path.exists(run_path):
+            run_name += "_" + generate_id(5)
+            run_path = SAVE_PATH + run_name + "/"
+    return run_name, run_path
 
 
 def generate_id(len=5):
