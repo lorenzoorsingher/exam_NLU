@@ -9,6 +9,7 @@ import numpy as np
 from torch import optim
 from tqdm import tqdm
 import argparse
+import json
 
 
 def train_loop(data, optimizer, criterion_slots, criterion_intents, model, clip=5):
@@ -250,3 +251,15 @@ def get_args():
 
     args = vars(parser.parse_args())
     return args
+
+
+def load_experiments(json_path):
+    print("loading from json...")
+    if os.path.exists(json_path):
+        filename = json_path.split("/")[-1]
+        print("loading from ", filename)
+        defaults, experiments = json.load(open(json_path))
+    else:
+        print("json not found, exiting...")
+        exit()
+    return defaults, experiments

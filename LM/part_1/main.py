@@ -1,45 +1,30 @@
 import os
 import wandb
-import json
 from dotenv import load_dotenv
 
-
-from functions import get_args, run_experiments, run_tests
+from functions import get_args, run_experiments, run_tests, load_experiments
 
 
 # load args
 load_dotenv()
 glob_args = get_args()
 
-# load experiments from json if provided
-if glob_args["json"] == "":
-    FROM_JSON = False
-    WANDB_SECRET = ""
-else:
-    FROM_JSON = True
-    json_path = glob_args["json"]
-    WANDB_SECRET = glob_args["wandb_secret"]
-
 TRAIN = glob_args["train"]
 TEST = glob_args["test"]
-
-# set up loggin if required
 LOG = not glob_args["no_log"]
+FROM_JSON = not glob_args["json"] == ""
+
+# setup logging
 if LOG:
+    WANDB_SECRET = glob_args["wandb_secret"]
     if WANDB_SECRET == "":
         WANDB_SECRET = os.getenv("WANDB_SECRET")
     wandb.login(key=WANDB_SECRET)
 
 # parse and prepare experiments
 if FROM_JSON:
-    print("loading from json...")
-    if os.path.exists(json_path):
-        filename = json_path.split("/")[-1]
-        print("loading from ", filename)
-        defaults, experiments = json.load(open(json_path))
-    else:
-        print("json not found, exiting...")
-        exit()
+    json_path = glob_args["json"]
+    defaults, experiments = load_experiments(json_path)
 else:
     defaults = {
         "emb_size": 300,
@@ -65,6 +50,7 @@ else:
             "tag": "general",
         }
     ]
+
 
 if TRAIN:
     run_experiments(defaults, experiments, glob_args)
