@@ -2,6 +2,13 @@ import torch.nn as nn
 import torch
 from conll import evaluate
 from sklearn.metrics import classification_report
+import os
+from utils import get_dataloaders
+from model import ModelIAS
+import numpy as np
+from torch import optim
+from tqdm import tqdm
+import argparse
 
 
 def train_loop(data, optimizer, criterion_slots, criterion_intents, model, clip=5):
@@ -99,3 +106,147 @@ def init_weights(mat):
                 nn.init.uniform_(m.weight, -0.01, 0.01)
                 if m.bias != None:
                     m.bias.data.fill_(0.01)
+
+
+def run_experiments():
+    DEVICE = "cuda:0"
+    PAD_TOKEN = 0
+    os.environ["CUDA_LAUNCH_BLOCKING"] = "1"  # Used to report errors on CUDA side
+
+    train_loader, dev_loader, test_loader, lang = get_dataloaders(
+        "NLU/part_1/dataset", PAD_TOKEN, DEVICE
+    )
+
+    hid_size = 200
+    emb_size = 300
+
+    lr = 0.0001  # learning rate
+    clip = 5  # Clip the gradient
+
+    out_slot = len(lang.slot2id)
+    out_int = len(lang.intent2id)
+    vocab_len = len(lang.word2id)
+
+    n_epochs = 200
+    runs = 5
+
+    slot_f1s, intent_acc = [], []
+    for x in tqdm(range(0, runs)):
+        model = ModelIAS(
+            hid_size, out_slot, out_int, emb_size, vocab_len, pad_index=PAD_TOKEN
+        ).to(DEVICE)
+        model.apply(init_weights)
+
+        optimizer = optim.Adam(model.parameters(), lr=lr)
+        criterion_slots = nn.CrossEntropyLoss(ignore_index=PAD_TOKEN)
+        criterion_intents = nn.CrossEntropyLoss()
+
+        patience = 3
+        losses_train = []
+        losses_dev = []
+        sampled_epochs = []
+        best_f1 = 0
+        for x in range(1, n_epochs):
+            loss = train_loop(
+                train_loader, optimizer, criterion_slots, criterion_intents, model
+            )
+            if x % 5 == 0:
+                sampled_epochs.append(x)
+                losses_train.append(np.asarray(loss).mean())
+                results_dev, intent_res, loss_dev = eval_loop(
+                    dev_loader, criterion_slots, criterion_intents, model, lang
+                )
+                losses_dev.append(np.asarray(loss_dev).mean())
+                f1 = results_dev["total"]["f"]
+
+                if f1 > best_f1:
+                    best_f1 = f1
+                else:
+                    patience -= 1
+                if patience <= 0:  # Early stopping with patient
+                    break  # Not nice but it keeps the code clean
+
+        results_test, intent_test, _ = eval_loop(
+            test_loader, criterion_slots, criterion_intents, model, lang
+        )
+        intent_acc.append(intent_test["accuracy"])
+        slot_f1s.append(results_test["total"]["f"])
+    slot_f1s = np.asarray(slot_f1s)
+    intent_acc = np.asarray(intent_acc)
+    print("Slot F1", round(slot_f1s.mean(), 3), "+-", round(slot_f1s.std(), 3))
+    print("Intent Acc", round(intent_acc.mean(), 3), "+-", round(slot_f1s.std(), 3))
+
+
+def get_args():
+    parser = argparse.ArgumentParser(
+        prog="main.py",
+        description="""Get the params""",
+    )
+
+    parser.add_argument(
+        "--train",
+        action="store_true",
+        help="Run training",
+        default=False,
+    )
+
+    parser.add_argument(
+        "--test",
+        action="store_true",
+        help="Run tests",
+        default=False,
+    )
+
+    parser.add_argument(
+        "-j",
+        "--json",
+        type=str,
+        help="Load params from json",
+        default="",
+    )
+
+    parser.add_argument(
+        "-NL",
+        "--no-log",
+        action="store_true",
+        help="Do not log run",
+    )
+
+    parser.add_argument(
+        "-trs",
+        "--train-batch-size",
+        type=int,
+        help="Set the train batch size",
+        default=256,
+        metavar="",
+    )
+
+    parser.add_argument(
+        "-tes",
+        "--test-batch-size",
+        type=int,
+        help="Set the test batch size",
+        default=1024,
+        metavar="",
+    )
+
+    parser.add_argument(
+        "-vas",
+        "--val-batch-size",
+        type=int,
+        help="Set the val batch size",
+        default=1024,
+        metavar="",
+    )
+
+    parser.add_argument(
+        "-w",
+        "--wandb-secret",
+        type=str,
+        help="Set wandb secret",
+        default="",
+        metavar="",
+    )
+
+    args = vars(parser.parse_args())
+    return args
