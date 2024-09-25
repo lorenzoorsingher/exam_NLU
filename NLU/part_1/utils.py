@@ -4,27 +4,15 @@ from collections import Counter
 import os
 import torch
 import torch.utils.data as data
+from torch.utils.data import DataLoader
 
-device = (
-    "cuda:0"  # cuda:0 means we are using the GPU with id 0, if you have multiple GPU
-)
-os.environ["CUDA_LAUNCH_BLOCKING"] = "1"  # Used to report errors on CUDA side
-PAD_TOKEN = 0
-
-
-def load_data(path):
-    """
-    input: path/to/data
-    output: json
-    """
-    dataset = []
-    with open(path) as f:
-        dataset = json.loads(f.read())
-    return dataset
+from sklearn.model_selection import train_test_split
+from functools import partial
 
 
 class Lang:
-    def __init__(self, words, intents, slots, cutoff=0):
+    def __init__(self, words, intents, slots, pad_token, cutoff=0):
+        self.pad_token = pad_token
         self.word2id = self.w2id(words, cutoff=cutoff, unk=True)
         self.slot2id = self.lab2id(slots)
         self.intent2id = self.lab2id(intents, pad=False)
@@ -33,7 +21,7 @@ class Lang:
         self.id2intent = {v: k for k, v in self.intent2id.items()}
 
     def w2id(self, elements, cutoff=None, unk=True):
-        vocab = {"pad": PAD_TOKEN}
+        vocab = {"pad": self.pad_token}
         if unk:
             vocab["unk"] = len(vocab)
         count = Counter(elements)
@@ -45,7 +33,7 @@ class Lang:
     def lab2id(self, elements, pad=True):
         vocab = {}
         if pad:
-            vocab["pad"] = PAD_TOKEN
+            vocab["pad"] = self.pad_token
         for elem in elements:
             vocab[elem] = len(vocab)
         return vocab
@@ -96,10 +84,7 @@ class IntentsAndSlots(data.Dataset):
         return res
 
 
-from torch.utils.data import DataLoader
-
-
-def collate_fn(data):
+def collate_fn(data, pad_token, device):
     def merge(sequences):
         """
         merge from batch * sent_len to batch * max_len
@@ -109,7 +94,7 @@ def collate_fn(data):
         # Pad token is zero in our case
         # So we create a matrix full of PAD_TOKEN (i.e. 0) with the shape
         # batch_size X maximum length of a sequence
-        padded_seqs = torch.LongTensor(len(sequences), max_len).fill_(PAD_TOKEN)
+        padded_seqs = torch.LongTensor(len(sequences), max_len).fill_(pad_token)
         for i, seq in enumerate(sequences):
             end = lengths[i]
             padded_seqs[i, :end] = seq  # We copy each sequence into the matrix
@@ -140,3 +125,84 @@ def collate_fn(data):
     new_item["y_slots"] = y_slots
     new_item["slots_len"] = y_lengths
     return new_item
+
+
+def get_dataloaders(data_path, pad_token, device, portion=0.10):
+    tmp_train_raw = load_data(os.path.join(data_path, "ATIS", "train.json"))
+    test_raw = load_data(os.path.join(data_path, "ATIS", "test.json"))
+    print("Train samples:", len(tmp_train_raw))
+    print("Test samples:", len(test_raw))
+
+    intents = [x["intent"] for x in tmp_train_raw]  # We stratify on intents
+    count_y = Counter(intents)
+
+    labels = []
+    inputs = []
+    mini_train = []
+
+    for id_y, y in enumerate(intents):
+        if count_y[y] > 1:  # If some intents occurs only once, we put them in training
+            inputs.append(tmp_train_raw[id_y])
+            labels.append(y)
+        else:
+            mini_train.append(tmp_train_raw[id_y])
+
+    # Random Stratify
+    X_train, X_dev, _, _ = train_test_split(
+        inputs,
+        labels,
+        test_size=portion,
+        random_state=42,
+        shuffle=True,
+        stratify=labels,
+    )
+    X_train.extend(mini_train)
+    train_raw = X_train
+    dev_raw = X_dev
+
+    words = sum(
+        [x["utterance"].split() for x in train_raw], []
+    )  # No set() since we want to compute
+    # the cutoff
+    corpus = train_raw + dev_raw + test_raw  # We do not wat unk labels,
+    # however this depends on the research purpose
+    slots = set(sum([line["slots"].split() for line in corpus], []))
+    intents = set([line["intent"] for line in corpus])
+
+    lang = Lang(words, intents, slots, pad_token, cutoff=0)
+
+    # Create our datasets
+    train_dataset = IntentsAndSlots(train_raw, lang)
+    dev_dataset = IntentsAndSlots(dev_raw, lang)
+    test_dataset = IntentsAndSlots(test_raw, lang)
+
+    # Dataloader instantiations
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=128,
+        collate_fn=partial(collate_fn, pad_token=pad_token, device=device),
+        shuffle=True,
+    )
+    dev_loader = DataLoader(
+        dev_dataset,
+        batch_size=64,
+        collate_fn=partial(collate_fn, pad_token=pad_token, device=device),
+    )
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=64,
+        collate_fn=partial(collate_fn, pad_token=pad_token, device=device),
+    )
+
+    return train_loader, dev_loader, test_loader, lang
+
+
+def load_data(path):
+    """
+    input: path/to/data
+    output: json
+    """
+    dataset = []
+    with open(path) as f:
+        dataset = json.loads(f.read())
+    return dataset
