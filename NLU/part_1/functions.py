@@ -1,15 +1,17 @@
-import torch.nn as nn
-import torch
-from conll import evaluate
-from sklearn.metrics import classification_report
 import os
-from utils import get_dataloaders
-from model import ModelIAS
-import numpy as np
-from torch import optim
-from tqdm import tqdm
 import argparse
 import json
+import torch
+import numpy as np
+
+from torch import nn
+from torch import optim
+from model import ModelIAS
+from tqdm import tqdm
+from conll import evaluate
+from sklearn.metrics import classification_report
+
+from utils import get_dataloaders
 
 
 def train_loop(data, optimizer, criterion_slots, criterion_intents, model, clip=5):
