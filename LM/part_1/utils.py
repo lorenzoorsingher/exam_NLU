@@ -1,10 +1,5 @@
-# Loading the corpus
-import random
-
 import torch
 import torch.utils.data as data
-from functools import partial
-from torch.utils.data import DataLoader
 
 
 class PennTreeBank(data.Dataset):

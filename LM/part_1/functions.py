@@ -1,22 +1,19 @@
-from torch import nn, optim
-from functools import partial
-
-from model import LM_MODEL
-from utils import Lang, read_file, get_vocab
-from utils import PennTreeBank, DataLoader, collate_fn
+import os
+import torch
+import copy
+import json
+import wandb
+import math
 import argparse
 import random
 
-import math
+from torch import nn, optim
+from functools import partial
 from tqdm import tqdm
-import wandb
-
-import os
-import torch
-import numpy as np
-import copy
 from pathlib import Path
-import json
+
+from model import LM_MODEL
+from utils import PennTreeBank, DataLoader, Lang, read_file, collate_fn
 
 
 def train_loop(data, optimizer, criterion, model, clip=5):
