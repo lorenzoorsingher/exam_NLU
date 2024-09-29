@@ -211,14 +211,19 @@ def run_experiments(defaults, experiments, glob_args):
                 else:
                     patience -= 1
 
+                # pbar.set_description(
+                #     "PPL: "
+                #     + str(round(ppl_dev, 2))
+                #     + " best: "
+                #     + str(round(best_ppl, 2))
+                #     + " P: "
+                #     + str(patience)
+                # )
+
                 pbar.set_description(
-                    "PPL: "
-                    + str(round(ppl_dev, 2))
-                    + " best: "
-                    + str(round(best_ppl, 2))
-                    + " P: "
-                    + str(patience)
+                    f"PPL: {round(ppl_dev, 2)} best: {round(best_ppl, 2)} P: {patience}"
                 )
+
                 if LOG:
                     wandb.log(
                         {"ppl_dev": ppl_dev, "ppl_train": ppl_train, "loss": loss_dev}
