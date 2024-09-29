@@ -2,6 +2,8 @@ import os
 import argparse
 import json
 import torch
+import wandb
+import random
 import numpy as np
 
 from torch import nn
@@ -29,7 +31,9 @@ def train_loop(data, optimizer, criterion_slots, criterion_intents, model, clip=
         # clip the gradient to avoid exploding gradients
         torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
         optimizer.step()  # Update the weights
-    return loss_array
+
+    avg_loss = np.array(loss_array).mean()
+    return loss_array, avg_loss
 
 
 def eval_loop(data, criterion_slots, criterion_intents, model, lang):
@@ -87,7 +91,10 @@ def eval_loop(data, criterion_slots, criterion_intents, model, lang):
     report_intent = classification_report(
         ref_intents, hyp_intents, zero_division=False, output_dict=True
     )
-    return results, report_intent, loss_array
+
+    loss_avg = np.array(loss_array).mean()
+
+    return results, report_intent, loss_array, loss_avg
 
 
 def init_weights(mat):
@@ -111,73 +118,131 @@ def init_weights(mat):
                     m.bias.data.fill_(0.01)
 
 
-def run_experiments():
-    DEVICE = "cuda:0"
+def run_experiments(defaults, experiments, glob_args):
+
+    LOG = not glob_args["no_log"]
+    SAVE_PATH = glob_args["save_path"]
+    DEVICE = "cuda:0"  # it can be changed with 'cpu' if you do not have a gpu
+    DATASET_PATH = "NLU/part_1/dataset"
     PAD_TOKEN = 0
-    os.environ["CUDA_LAUNCH_BLOCKING"] = "1"  # Used to report errors on CUDA side
 
     train_loader, dev_loader, test_loader, lang = get_dataloaders(
-        "NLU/part_1/dataset", PAD_TOKEN, DEVICE
+        DATASET_PATH, PAD_TOKEN, DEVICE
     )
-
-    hid_size = 200
-    emb_size = 300
-
-    lr = 0.0001  # learning rate
-    clip = 5  # Clip the gradient
 
     out_slot = len(lang.slot2id)
     out_int = len(lang.intent2id)
     vocab_len = len(lang.word2id)
 
-    n_epochs = 200
-    runs = 5
+    for exp in experiments:
 
-    slot_f1s, intent_acc = [], []
-    for x in tqdm(range(0, runs)):
-        model = ModelIAS(
-            hid_size, out_slot, out_int, emb_size, vocab_len, pad_index=PAD_TOKEN
-        ).to(DEVICE)
-        model.apply(init_weights)
+        # prepare experiment params
+        args = defaults | exp
 
-        optimizer = optim.Adam(model.parameters(), lr=lr)
-        criterion_slots = nn.CrossEntropyLoss(ignore_index=PAD_TOKEN)
-        criterion_intents = nn.CrossEntropyLoss()
+        print(args)
 
-        patience = 3
-        losses_train = []
-        losses_dev = []
-        sampled_epochs = []
-        best_f1 = 0
-        for x in range(1, n_epochs):
-            loss = train_loop(
-                train_loader, optimizer, criterion_slots, criterion_intents, model
-            )
-            if x % 5 == 0:
-                sampled_epochs.append(x)
-                losses_train.append(np.asarray(loss).mean())
-                results_dev, intent_res, loss_dev = eval_loop(
-                    dev_loader, criterion_slots, criterion_intents, model, lang
+        emb_size = args["emb_size"]
+        hid_size = args["hid_size"]
+        lr = args["lr"]
+        runs = args["runs"]
+        tag = args["tag"]
+
+        run_name, run_path = build_run_name(SAVE_PATH)
+
+        EPOCHS = args["EPOCHS"]
+        PAT = args["PAT"]
+        SAVE_RATE = 10000000
+
+        slot_f1s, intent_acc = [], []
+
+        pbar_runs = tqdm(range(1, runs))
+        for run_n in pbar_runs:
+
+            model = ModelIAS(
+                hid_size, out_slot, out_int, emb_size, vocab_len, pad_index=PAD_TOKEN
+            ).to(DEVICE)
+
+            model.apply(init_weights)
+            optimizer = optim.Adam(model.parameters(), lr=lr)
+            criterion_slots = nn.CrossEntropyLoss(ignore_index=PAD_TOKEN)
+            criterion_intents = nn.CrossEntropyLoss()
+
+            if LOG:
+                wandb.init(
+                    # set the wandb project where this run will be logged
+                    project="NLU_part_two",
+                    name=run_name + "_" + str(run_n),
+                    config={
+                        "model": str(type(model).__name__),
+                        "lr": lr,
+                        "optim": str(type(optimizer).__name__),
+                        "hid_size": hid_size,
+                        "emb_size": emb_size,
+                        "tag": tag,
+                        "runset": run_name,
+                    },
                 )
-                losses_dev.append(np.asarray(loss_dev).mean())
-                f1 = results_dev["total"]["f"]
 
-                if f1 > best_f1:
-                    best_f1 = f1
-                else:
-                    patience -= 1
-                if patience <= 0:  # Early stopping with patient
-                    break  # Not nice but it keeps the code clean
+            best_f1 = 0
+            pbar_epochs = tqdm(range(1, EPOCHS))
+            for epoch in pbar_epochs:
+                loss, avg_loss = train_loop(
+                    train_loader, optimizer, criterion_slots, criterion_intents, model
+                )
+                if epoch % 5 == 0:
+                    results_dev, intent_res, loss_dev, avg_loss_dev = eval_loop(
+                        dev_loader, criterion_slots, criterion_intents, model, lang
+                    )
+                    f1 = results_dev["total"]["f"]
 
-        results_test, intent_test, _ = eval_loop(
-            test_loader, criterion_slots, criterion_intents, model, lang
-        )
-        intent_acc.append(intent_test["accuracy"])
-        slot_f1s.append(results_test["total"]["f"])
-    slot_f1s = np.asarray(slot_f1s)
-    intent_acc = np.asarray(intent_acc)
-    print("Slot F1", round(slot_f1s.mean(), 3), "+-", round(slot_f1s.std(), 3))
-    print("Intent Acc", round(intent_acc.mean(), 3), "+-", round(slot_f1s.std(), 3))
+                    if f1 > best_f1:
+                        best_f1 = f1
+                        patience = PAT
+                    else:
+                        patience -= 1
+
+                    pbar_epochs.set_description(
+                        f"F1 {f1} best F1 {best_f1} PAT {patience}"
+                    )
+
+                    if LOG:
+                        wandb.log(
+                            {
+                                "loss": avg_loss,
+                                "val loss": avg_loss_dev,
+                                "F1": f1,
+                                "acc": intent_res["accuracy"],
+                            }
+                        )
+
+                    if patience < 0:  # Early stopping with patient
+                        break
+
+            results_dev, intent_res, loss_dev, avg_loss_dev = eval_loop(
+                dev_loader, criterion_slots, criterion_intents, model, lang
+            )
+            results_test, intent_test, _ = eval_loop(
+                test_loader, criterion_slots, criterion_intents, model, lang
+            )
+            intent_acc.append(intent_test["accuracy"])
+            slot_f1s.append(results_test["total"]["f"])
+
+            if LOG:
+                wandb.log(
+                    {
+                        "loss": loss,
+                        "val loss": avg_loss_dev,
+                        "F1": results_dev["total"]["f"],
+                        "acc": intent_res["accuracy"],
+                        "test F1": results_test["total"]["f"],
+                        "test acc": intent_test["accuracy"],
+                    }
+                )
+                wandb.finish()
+        slot_f1s = np.asarray(slot_f1s)
+        intent_acc = np.asarray(intent_acc)
+        print("Slot F1", round(slot_f1s.mean(), 3), "+-", round(slot_f1s.std(), 3))
+        print("Intent Acc", round(intent_acc.mean(), 3), "+-", round(slot_f1s.std(), 3))
 
 
 def get_args():
@@ -215,32 +280,32 @@ def get_args():
         help="Do not log run",
     )
 
-    parser.add_argument(
-        "-trs",
-        "--train-batch-size",
-        type=int,
-        help="Set the train batch size",
-        default=256,
-        metavar="",
-    )
+    # parser.add_argument(
+    #     "-trs",
+    #     "--train-batch-size",
+    #     type=int,
+    #     help="Set the train batch size",
+    #     default=256,
+    #     metavar="",
+    # )
 
-    parser.add_argument(
-        "-tes",
-        "--test-batch-size",
-        type=int,
-        help="Set the test batch size",
-        default=1024,
-        metavar="",
-    )
+    # parser.add_argument(
+    #     "-tes",
+    #     "--test-batch-size",
+    #     type=int,
+    #     help="Set the test batch size",
+    #     default=1024,
+    #     metavar="",
+    # )
 
-    parser.add_argument(
-        "-vas",
-        "--val-batch-size",
-        type=int,
-        help="Set the val batch size",
-        default=1024,
-        metavar="",
-    )
+    # parser.add_argument(
+    #     "-vas",
+    #     "--val-batch-size",
+    #     type=int,
+    #     help="Set the val batch size",
+    #     default=1024,
+    #     metavar="",
+    # )
 
     parser.add_argument(
         "-w",
@@ -251,8 +316,35 @@ def get_args():
         metavar="",
     )
 
+    parser.add_argument(
+        "-s",
+        "--save-path",
+        type=str,
+        help="Set checkpoint save path",
+        default="LM/part_1/bin/",
+        metavar="",
+    )
+
     args = vars(parser.parse_args())
     return args
+
+
+def build_run_name(SAVE_PATH):
+    run_name = "test"
+
+    run_name += "_" + generate_id(5)
+    run_path = SAVE_PATH + run_name + "/"
+
+    if os.path.exists(run_path):
+        while os.path.exists(run_path):
+            run_name += "_" + generate_id(5)
+            run_path = SAVE_PATH + run_name + "/"
+    return run_name, run_path
+
+
+def generate_id(len=5):
+    STR_KEY_GEN = "ABCDEFGHIJKLMNOPQRSTUVWXYzabcdefghijklmnopqrstuvwxyz"
+    return "".join(random.choice(STR_KEY_GEN) for _ in range(len))
 
 
 def load_experiments(json_path):
