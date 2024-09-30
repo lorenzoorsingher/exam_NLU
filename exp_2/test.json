@@ -6,6 +6,7 @@
     "EPOCHS": 120,
     "runs": 3,
     "PAT": 5,
+    "OPT": "Adam",
     "tag": "general"
   },
 
@@ -18,6 +19,18 @@
     },
     {
       "lr": 0.001
+    },
+    {
+      "lr": 0.0001,
+      "OPT": "AdamW"
+    },
+    {
+      "lr": 0.0005,
+      "OPT": "AdamW"
+    },
+    {
+      "lr": 0.001,
+      "OPT": "AdamW"
     }
   ]
 ]

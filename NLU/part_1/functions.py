@@ -82,10 +82,11 @@ def eval_loop(data, criterion_slots, criterion_intents, model, lang):
         results = evaluate(ref_slots, hyp_slots)
     except Exception as ex:
         # Sometimes the model predicts a class that is not in REF
-        print("Warning:", ex)
+        # print("Warning:", ex)
+        print("Class is not in REF")
         ref_s = set([x[1] for x in ref_slots])
         hyp_s = set([x[1] for x in hyp_slots])
-        print(hyp_s.difference(ref_s))
+        # print(hyp_s.difference(ref_s))
         results = {"total": {"f": 0}}
 
     report_intent = classification_report(
@@ -144,10 +145,11 @@ def run_experiments(defaults, experiments, glob_args):
         emb_size = args["emb_size"]
         hid_size = args["hid_size"]
         lr = args["lr"]
+        OPT = args["OPT"]
         runs = args["runs"]
         tag = args["tag"]
 
-        run_name, run_path = build_run_name(SAVE_PATH)
+        run_name, run_path = build_run_name(args, SAVE_PATH)
 
         EPOCHS = args["EPOCHS"]
         PAT = args["PAT"]
@@ -163,13 +165,17 @@ def run_experiments(defaults, experiments, glob_args):
             ).to(DEVICE)
 
             model.apply(init_weights)
-            optimizer = optim.Adam(model.parameters(), lr=lr)
+
+            if OPT == "Adam":
+                optimizer = optim.Adam(model.parameters(), lr=lr)
+            elif OPT == "AdamW":
+                optimizer = optim.AdamW(model.parameters(), lr=lr)
+
             criterion_slots = nn.CrossEntropyLoss(ignore_index=PAD_TOKEN)
             criterion_intents = nn.CrossEntropyLoss()
 
             if LOG:
                 wandb.init(
-                    # set the wandb project where this run will be logged
                     project="NLU_part_two",
                     name=run_name + "_" + str(run_n),
                     config={
@@ -180,16 +186,18 @@ def run_experiments(defaults, experiments, glob_args):
                         "emb_size": emb_size,
                         "tag": tag,
                         "runset": run_name,
+                        "run": run_n,
                     },
                 )
 
             best_f1 = 0
+            patience = PAT
             pbar_epochs = tqdm(range(1, EPOCHS))
             for epoch in pbar_epochs:
                 loss, avg_loss = train_loop(
                     train_loader, optimizer, criterion_slots, criterion_intents, model
                 )
-                if epoch % 5 == 0:
+                if epoch % 1 == 0:
                     results_dev, intent_res, loss_dev, avg_loss_dev = eval_loop(
                         dev_loader, criterion_slots, criterion_intents, model, lang
                     )
@@ -199,10 +207,11 @@ def run_experiments(defaults, experiments, glob_args):
                         best_f1 = f1
                         patience = PAT
                     else:
-                        patience -= 1
+                        if epoch > 10:
+                            patience -= 1
 
                     pbar_epochs.set_description(
-                        f"F1 {f1} best F1 {best_f1} PAT {patience}"
+                        f"F1 {round_sf(f1,2)} best F1 {round_sf(best_f1,2)} PAT {patience}"
                     )
 
                     if LOG:
@@ -218,16 +227,19 @@ def run_experiments(defaults, experiments, glob_args):
                     if patience < 0:  # Early stopping with patient
                         break
 
-            results_dev, intent_res, loss_dev, avg_loss_dev = eval_loop(
+            results_dev, intent_res, _, avg_loss_dev = eval_loop(
                 dev_loader, criterion_slots, criterion_intents, model, lang
             )
-            results_test, intent_test, _ = eval_loop(
+            results_test, intent_test, _, avg_loss_test = eval_loop(
                 test_loader, criterion_slots, criterion_intents, model, lang
             )
             intent_acc.append(intent_test["accuracy"])
             slot_f1s.append(results_test["total"]["f"])
 
             if LOG:
+
+                loss_gap = (avg_loss_test - avg_loss_dev) / avg_loss_test
+
                 wandb.log(
                     {
                         "loss": loss,
@@ -236,11 +248,37 @@ def run_experiments(defaults, experiments, glob_args):
                         "acc": intent_res["accuracy"],
                         "test F1": results_test["total"]["f"],
                         "test acc": intent_test["accuracy"],
+                        "loss_gap": loss_gap,
                     }
                 )
+
+                # on last run log the mean and std of the results
+                if run_n == runs - 1:
+
+                    slot_f1s = np.asarray(slot_f1s)
+                    intent_acc = np.asarray(intent_acc)
+
+                    slot_f1s_mean = round(slot_f1s.mean(), 3)
+
+                    slot_f1s_std = round(slot_f1s.std(), 3)
+
+                    intent_acc_mean = round(intent_acc.mean(), 3)
+                    intent_acc_std = round(slot_f1s.std(), 3)
+
+                    wandb.log(
+                        {
+                            "slot_f1s_mean": slot_f1s_mean,
+                            "slot_f1s_std": slot_f1s_std,
+                            "intent_acc_mean": intent_acc_mean,
+                            "intent_acc_std": intent_acc_std,
+                        }
+                    )
+
                 wandb.finish()
+
         slot_f1s = np.asarray(slot_f1s)
         intent_acc = np.asarray(intent_acc)
+
         print("Slot F1", round(slot_f1s.mean(), 3), "+-", round(slot_f1s.std(), 3))
         print("Intent Acc", round(intent_acc.mean(), 3), "+-", round(slot_f1s.std(), 3))
 
@@ -329,8 +367,10 @@ def get_args():
     return args
 
 
-def build_run_name(SAVE_PATH):
+def build_run_name(args, SAVE_PATH):
     run_name = "test"
+
+    run_name += "_" + str(args["lr"]) + "_" + args["OPT"]
 
     run_name += "_" + generate_id(5)
     run_path = SAVE_PATH + run_name + "/"
@@ -345,6 +385,10 @@ def build_run_name(SAVE_PATH):
 def generate_id(len=5):
     STR_KEY_GEN = "ABCDEFGHIJKLMNOPQRSTUVWXYzabcdefghijklmnopqrstuvwxyz"
     return "".join(random.choice(STR_KEY_GEN) for _ in range(len))
+
+
+def round_sf(number, significant=2):
+    return round(number, significant - len(str(number)))
 
 
 def load_experiments(json_path):
