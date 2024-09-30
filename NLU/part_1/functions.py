@@ -146,6 +146,10 @@ def run_experiments(defaults, experiments, glob_args):
         hid_size = args["hid_size"]
         lr = args["lr"]
         OPT = args["OPT"]
+        drop = args["drop"]
+        var_drop = args["var_drop"]
+        tie = args["tie"]
+
         runs = args["runs"]
         tag = args["tag"]
 
@@ -161,7 +165,15 @@ def run_experiments(defaults, experiments, glob_args):
         for run_n in pbar_runs:
 
             model = ModelIAS(
-                hid_size, out_slot, out_int, emb_size, vocab_len, pad_index=PAD_TOKEN
+                hid_size,
+                out_slot,
+                out_int,
+                emb_size,
+                vocab_len,
+                pad_index=PAD_TOKEN,
+                var_drop=var_drop,
+                dropout=drop,
+                tie=tie,
             ).to(DEVICE)
 
             model.apply(init_weights)
@@ -184,6 +196,9 @@ def run_experiments(defaults, experiments, glob_args):
                         "optim": str(type(optimizer).__name__),
                         "hid_size": hid_size,
                         "emb_size": emb_size,
+                        "drop": drop,
+                        "var_drop": var_drop,
+                        "tie": tie,
                         "tag": tag,
                         "runset": run_name,
                         "run": run_n,
@@ -242,7 +257,6 @@ def run_experiments(defaults, experiments, glob_args):
 
                 wandb.log(
                     {
-                        "loss": loss,
                         "val loss": avg_loss_dev,
                         "F1": results_dev["total"]["f"],
                         "acc": intent_res["accuracy"],
@@ -317,33 +331,6 @@ def get_args():
         action="store_true",
         help="Do not log run",
     )
-
-    # parser.add_argument(
-    #     "-trs",
-    #     "--train-batch-size",
-    #     type=int,
-    #     help="Set the train batch size",
-    #     default=256,
-    #     metavar="",
-    # )
-
-    # parser.add_argument(
-    #     "-tes",
-    #     "--test-batch-size",
-    #     type=int,
-    #     help="Set the test batch size",
-    #     default=1024,
-    #     metavar="",
-    # )
-
-    # parser.add_argument(
-    #     "-vas",
-    #     "--val-batch-size",
-    #     type=int,
-    #     help="Set the val batch size",
-    #     default=1024,
-    #     metavar="",
-    # )
 
     parser.add_argument(
         "-w",

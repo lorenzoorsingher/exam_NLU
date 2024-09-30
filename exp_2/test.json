@@ -3,34 +3,28 @@
     "emb_size": 300,
     "hid_size": 300,
     "lr": 0.001,
-    "EPOCHS": 120,
+    "EPOCHS": 200,
     "runs": 3,
     "PAT": 5,
+    "var_drop": false,
+    "tie": false,
+    "drop": 0,
     "OPT": "Adam",
     "tag": "general"
   },
 
   [
     {
-      "lr": 0.0001
-    },
-    {
-      "lr": 0.0005
-    },
-    {
-      "lr": 0.001
+      "lr": 0.0001,
+      "drop": 0.25
     },
     {
       "lr": 0.0001,
-      "OPT": "AdamW"
+      "drop": 0.5
     },
     {
-      "lr": 0.0005,
-      "OPT": "AdamW"
-    },
-    {
-      "lr": 0.001,
-      "OPT": "AdamW"
+      "lr": 0.0001,
+      "drop": 0.75
     }
   ]
 ]
