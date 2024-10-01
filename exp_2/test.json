@@ -2,20 +2,30 @@
   {
     "emb_size": 300,
     "hid_size": 300,
-    "lr": 0.001,
+    "lr": 0.0001,
     "EPOCHS": 350,
     "runs": 5,
     "PAT": 5,
     "var_drop": false,
     "drop": 0,
     "OPT": "AdamW",
-    "tag": "general",
+    "tag": "azure",
     "bi": false
   },
 
   [
     {
       "lr": 0.0001,
+      "drop": 0,
+      "bi": false
+    },
+    {
+      "lr": 0.0005,
+      "drop": 0,
+      "bi": false
+    },
+    {
+      "lr": 0.001,
       "drop": 0,
       "bi": false
     },
