@@ -31,8 +31,8 @@ class ModelIAS(nn.Module):
         vocab_len,
         n_layer=1,
         pad_index=0,
-        tie=False,
         var_drop=False,
+        bi=False,
         dropout=0.1,
     ):
         super(ModelIAS, self).__init__()
@@ -44,9 +44,14 @@ class ModelIAS(nn.Module):
         self.embedding = nn.Embedding(vocab_len, emb_size, padding_idx=pad_index)
 
         self.utt_encoder = nn.LSTM(
-            emb_size, hid_size, n_layer, bidirectional=False, batch_first=True
+            emb_size, hid_size, n_layer, bidirectional=bi, batch_first=True
         )
-        self.slot_out = nn.Linear(hid_size, out_slot)
+
+        if bi:
+            self.slot_out = nn.Linear(hid_size * 2, out_slot)
+        else:
+            self.slot_out = nn.Linear(hid_size, out_slot)
+
         self.intent_out = nn.Linear(hid_size, out_int)
 
         if var_drop:
@@ -84,7 +89,7 @@ class ModelIAS(nn.Module):
 
         # Is this another possible way to get the last hiddent state? (Why?)
         # utt_encoded.permute(1,0,2)[-1]
-
+        # breakpoint()
         # Compute slot logits
         slots = self.slot_out(drop_enc)
         # Compute intent logits

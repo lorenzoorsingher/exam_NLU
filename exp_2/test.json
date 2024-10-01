@@ -3,28 +3,60 @@
     "emb_size": 300,
     "hid_size": 300,
     "lr": 0.001,
-    "EPOCHS": 200,
-    "runs": 3,
+    "EPOCHS": 20,
+    "runs": 5,
     "PAT": 5,
     "var_drop": false,
-    "tie": false,
     "drop": 0,
-    "OPT": "Adam",
-    "tag": "general"
+    "OPT": "AdamW",
+    "tag": "general",
+    "bi": false
   },
 
   [
     {
       "lr": 0.0001,
-      "drop": 0.25
+      "drop": 0,
+      "bi": false
     },
     {
       "lr": 0.0001,
-      "drop": 0.5
+      "drop": 0.25,
+      "bi": false
     },
     {
       "lr": 0.0001,
-      "drop": 0.75
+      "drop": 0.5,
+      "bi": false
+    },
+    {
+      "lr": 0.0001,
+      "drop": 0.25,
+      "var_drop": true,
+      "bi": false
+    },
+    {
+      "lr": 0.0001,
+      "drop": 0.5,
+      "var_drop": true,
+      "bi": false
+    },
+    {
+      "lr": 0.0001,
+      "drop": 0,
+      "bi": true
+    },
+    {
+      "lr": 0.0001,
+      "drop": 0.25,
+      "var_drop": true,
+      "bi": true
+    },
+    {
+      "lr": 0.0001,
+      "drop": 0.5,
+      "var_drop": true,
+      "bi": true
     }
   ]
 ]

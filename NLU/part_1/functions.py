@@ -148,18 +148,22 @@ def run_experiments(defaults, experiments, glob_args):
         OPT = args["OPT"]
         drop = args["drop"]
         var_drop = args["var_drop"]
-        tie = args["tie"]
+        bi = args["bi"]
 
         runs = args["runs"]
         tag = args["tag"]
 
         run_name, run_path = build_run_name(args, SAVE_PATH)
 
+        os.mkdir(run_path)
+
         EPOCHS = args["EPOCHS"]
         PAT = args["PAT"]
-        SAVE_RATE = 10000000
+        # SAVE_RATE = 10000000
 
         slot_f1s, intent_acc = [], []
+
+        print("[TRAIN] Starting ", run_name)
 
         pbar_runs = tqdm(range(1, runs))
         for run_n in pbar_runs:
@@ -173,7 +177,7 @@ def run_experiments(defaults, experiments, glob_args):
                 pad_index=PAD_TOKEN,
                 var_drop=var_drop,
                 dropout=drop,
-                tie=tie,
+                bi=bi,
             ).to(DEVICE)
 
             model.apply(init_weights)
@@ -198,7 +202,6 @@ def run_experiments(defaults, experiments, glob_args):
                         "emb_size": emb_size,
                         "drop": drop,
                         "var_drop": var_drop,
-                        "tie": tie,
                         "tag": tag,
                         "runset": run_name,
                         "run": run_n,
@@ -208,6 +211,8 @@ def run_experiments(defaults, experiments, glob_args):
             best_f1 = 0
             patience = PAT
             pbar_epochs = tqdm(range(1, EPOCHS))
+
+            best_model = None
             for epoch in pbar_epochs:
                 loss, avg_loss = train_loop(
                     train_loader, optimizer, criterion_slots, criterion_intents, model
@@ -222,7 +227,7 @@ def run_experiments(defaults, experiments, glob_args):
                         best_f1 = f1
                         patience = PAT
                     else:
-                        if epoch > 10:
+                        if epoch > 10:  # make sure early stopping
                             patience -= 1
 
                     pbar_epochs.set_description(
@@ -290,6 +295,8 @@ def run_experiments(defaults, experiments, glob_args):
 
                 wandb.finish()
 
+            torch.save(model.state_dict(), run_path + "best.pt")
+
         slot_f1s = np.asarray(slot_f1s)
         intent_acc = np.asarray(intent_acc)
 
@@ -346,7 +353,7 @@ def get_args():
         "--save-path",
         type=str,
         help="Set checkpoint save path",
-        default="LM/part_1/bin/",
+        default="NLU/part_1/bin/",
         metavar="",
     )
 
@@ -357,9 +364,12 @@ def get_args():
 def build_run_name(args, SAVE_PATH):
     run_name = "test"
 
-    run_name += "_" + str(args["lr"]) + "_" + args["OPT"]
+    run_name += "_" + str(args["lr"])[2:] + "_" + str(round(args["drop"] * 100))
 
-    run_name += "_" + generate_id(5)
+    if args["var_drop"]:
+        run_name += "_VD"
+
+    run_name += "_" + generate_id(4)
     run_path = SAVE_PATH + run_name + "/"
 
     if os.path.exists(run_path):
