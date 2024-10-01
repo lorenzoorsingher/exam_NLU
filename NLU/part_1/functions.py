@@ -274,15 +274,9 @@ def run_experiments(defaults, experiments, glob_args):
                 # on last run log the mean and std of the results
                 if run_n == runs - 1:
 
-                    slot_f1s = np.asarray(slot_f1s)
-                    intent_acc = np.asarray(intent_acc)
-
-                    slot_f1s_mean = round(slot_f1s.mean(), 3)
-
-                    slot_f1s_std = round(slot_f1s.std(), 3)
-
-                    intent_acc_mean = round(intent_acc.mean(), 3)
-                    intent_acc_std = round(slot_f1s.std(), 3)
+                    slot_f1s_mean, slot_f1s_std, intent_acc_mean, intent_acc_std = (
+                        remove_outliers(slot_f1s, intent_acc)
+                    )
 
                     wandb.log(
                         {
@@ -369,6 +363,9 @@ def build_run_name(args, SAVE_PATH):
     if args["var_drop"]:
         run_name += "_VD"
 
+    if args["bi"]:
+        run_name += "_B"
+
     run_name += "_" + generate_id(4)
     run_path = SAVE_PATH + run_name + "/"
 
@@ -398,3 +395,37 @@ def load_experiments(json_path):
         print("json not found, exiting...")
         exit()
     return defaults, experiments
+
+
+def remove_outliers(slot_f1s, intent_acc):
+    slot_f1s = np.asarray(slot_f1s)
+    intent_acc = np.asarray(intent_acc)
+
+    slot_f1s_mean = round(slot_f1s.mean(), 3)
+
+    slot_f1s_std = round(slot_f1s.std(), 3)
+
+    clean_slot_f1s = []
+    clean_intent_acc = []
+    for idx, (score, acc) in enumerate(zip(slot_f1s, intent_acc)):
+        z = abs((score - slot_f1s_mean) / slot_f1s_std)
+        if z < 3:
+            clean_slot_f1s.append(score)
+            clean_intent_acc.append(acc)
+        else:
+            print("Removing outlier ", idx + 1)
+    clean_slot_f1s = np.asarray(clean_slot_f1s)
+    clean_intent_acc = np.asarray(clean_intent_acc)
+
+    clean_slot_f1s_mean = round(clean_slot_f1s.mean(), 3)
+    clean_slot_f1s_std = round(clean_slot_f1s.std(), 3)
+
+    clean_intent_acc_mean = round(clean_intent_acc.mean(), 3)
+    clean_intent_acc_std = round(clean_intent_acc.std(), 3)
+
+    return (
+        clean_slot_f1s_mean,
+        clean_slot_f1s_std,
+        clean_intent_acc_mean,
+        clean_intent_acc_std,
+    )
