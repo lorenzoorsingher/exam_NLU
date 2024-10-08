@@ -25,3 +25,13 @@ The models that you can experiment with are [_BERT-base_ or _BERT-large_](https:
 **Slot filling**: F1 score with conll
 
 **_Dataset to use: ATIS_**
+
+## Tokenization
+
+BERT
+
+```
+['[CLS]', 'Hello', 'from', 't', '##rent', '##o', 'university', '[SEP]']
+
+[None, 0, 1, 2, 2, 2, 3, None]
+```
