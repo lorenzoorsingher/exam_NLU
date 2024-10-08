@@ -14,15 +14,26 @@ from sklearn.metrics import classification_report
 
 from utils import get_dataloaders
 
+from model import MyBert
+
 
 def train_loop(data, optimizer, criterion_slots, criterion_intents, model, clip=5):
     model.train()
     loss_array = []
     for sample in data:
+
+        utt = sample["utt"]
+        slots = sample["slots"]
+        mapping = sample["map"]
+        att = sample["att"]
+        intent = sample["intent"]
+        slen = sample["len_slots"]
+
         optimizer.zero_grad()  # Zeroing the gradient
-        slots, intent = model(sample["utterances"], sample["slots_len"])
-        loss_intent = criterion_intents(intent, sample["intents"])
-        loss_slot = criterion_slots(slots, sample["y_slots"])
+        slots, intent = model(utt, att, mapping)
+
+        loss_intent = criterion_intents(intent, intent)
+        loss_slot = criterion_slots(slots, slots)
         loss = loss_intent + loss_slot  # In joint training we sum the losses.
         # Is there another way to do that?
         loss_array.append(loss.item())
@@ -114,8 +125,8 @@ def run_experiments(defaults, experiments, glob_args):
         DATASET_PATH, PAD_TOKEN, DEVICE
     )
 
-    out_slot = len(lang.slot2id)
     out_int = len(lang.intent2id)
+    out_slot = len(lang.slot2id)
 
     for exp in experiments:
 
@@ -150,19 +161,13 @@ def run_experiments(defaults, experiments, glob_args):
         pbar_runs = tqdm(range(1, runs))
         for run_n in pbar_runs:
 
-            model = ModelIAS(
+            model = MyBert(
                 hid_size,
                 out_slot,
                 out_int,
-                emb_size,
-                vocab_len,
-                pad_index=PAD_TOKEN,
-                var_drop=var_drop,
-                dropout=drop,
-                bi=bi,
             ).to(DEVICE)
 
-            model.apply(init_weights)
+            # model.apply(init_weights)
 
             if OPT == "Adam":
                 optimizer = optim.Adam(model.parameters(), lr=lr)

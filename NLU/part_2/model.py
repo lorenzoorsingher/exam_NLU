@@ -24,13 +24,9 @@ class MyBert(nn.Module):
         # Slot filling classification head
         self.slot_classifier = nn.Linear(self.bert.config.hidden_size, slot_num_labels)
 
-    def forward(self, input_ids, attention_mask, token_type_ids):
+    def forward(self, input, attention_mask, mapping):
         # Pass inputs through BERT
-        outputs = self.bert(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
-        )
+        outputs = self.bert(input_ids=input, attention_mask=attention_mask)
 
         # CLS token embedding for intent classification
         cls_output = outputs.pooler_output
