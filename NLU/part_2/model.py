@@ -8,8 +8,8 @@ from transformers import BertTokenizer, BertModel
 class MyBert(nn.Module):
     def __init__(
         self,
-        intent_num_labels,
         slot_num_labels,
+        intent_num_labels,
     ):
         super(MyBert, self).__init__()
 
@@ -24,9 +24,12 @@ class MyBert(nn.Module):
         # Slot filling classification head
         self.slot_classifier = nn.Linear(self.bert.config.hidden_size, slot_num_labels)
 
-    def forward(self, input, attention_mask, mapping):
+    def forward(self, input, attention_mask, mapping, lens):
         # Pass inputs through BERT
         outputs = self.bert(input_ids=input, attention_mask=attention_mask)
+
+        # sequence_output = outputs.last_hidden_state
+        # final_output = outputs.last_hidden_state[:, 0]
 
         # CLS token embedding for intent classification
         cls_output = outputs.pooler_output
@@ -34,6 +37,21 @@ class MyBert(nn.Module):
 
         # Token-level embeddings for slot classification
         sequence_output = outputs.last_hidden_state
-        slot_logits = self.slot_classifier(self.dropout(sequence_output))
+
+        # Apply the mapping to the sequence_output
+        remapped_output = []
+
+        remapped_seq = torch.zeros(
+            (mapping.shape[0], mapping.shape[1], sequence_output.shape[2])
+        ).to(input.device)
+
+        for i, (map, len) in enumerate(zip(mapping, lens)):
+
+            for j, idx in enumerate(map):
+                remapped_seq[i, j] = sequence_output[i, idx]
+
+        slot_logits = self.slot_classifier(self.dropout(remapped_seq))
+
+        slot_logits = slot_logits.permute(0, 2, 1)
 
         return intent_logits, slot_logits

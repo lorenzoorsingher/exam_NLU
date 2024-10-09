@@ -22,18 +22,19 @@ def train_loop(data, optimizer, criterion_slots, criterion_intents, model, clip=
     loss_array = []
     for sample in data:
 
-        utt = sample["utt"]
-        slots = sample["slots"]
+        utt_x = sample["utt"]
+        slots_y = sample["slots"]
         mapping = sample["map"]
         att = sample["att"]
-        intent = sample["intent"]
+        intent_y = sample["intent"]
         slen = sample["len_slots"]
-
+        # breakpoint()
         optimizer.zero_grad()  # Zeroing the gradient
-        slots, intent = model(utt, att, mapping)
+        intent, slots = model(utt_x, att, mapping, slen)
+        breakpoint()
 
-        loss_intent = criterion_intents(intent, intent)
-        loss_slot = criterion_slots(slots, slots)
+        loss_intent = criterion_intents(intent, intent_y)
+        loss_slot = criterion_slots(slots, slots_y)
         loss = loss_intent + loss_slot  # In joint training we sum the losses.
         # Is there another way to do that?
         loss_array.append(loss.item())
@@ -108,11 +109,6 @@ def eval_loop(data, criterion_slots, criterion_intents, model, lang):
     return results, report_intent, loss_array, loss_avg
 
 
-def prepare_input(text, tokenizer):
-    inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True)
-    return inputs["input_ids"], inputs["attention_mask"], inputs["token_type_ids"]
-
-
 def run_experiments(defaults, experiments, glob_args):
 
     LOG = not glob_args["no_log"]
@@ -162,7 +158,6 @@ def run_experiments(defaults, experiments, glob_args):
         for run_n in pbar_runs:
 
             model = MyBert(
-                hid_size,
                 out_slot,
                 out_int,
             ).to(DEVICE)
@@ -283,6 +278,9 @@ def run_experiments(defaults, experiments, glob_args):
 
         print("Slot F1", round(slot_f1s.mean(), 3), "+-", round(slot_f1s.std(), 3))
         print("Intent Acc", round(intent_acc.mean(), 3), "+-", round(slot_f1s.std(), 3))
+
+
+#######################################################################################
 
 
 def get_args():
