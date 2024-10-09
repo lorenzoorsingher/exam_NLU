@@ -32,7 +32,7 @@ class BERTSet(data.Dataset):
 
     def __init__(self, dataset, lang, unk="unk"):
 
-        self.tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+        self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
         self.PAD_TOKEN_ID = self.tokenizer.pad_token_id
         self.SLOT_PAD = 0
         self.utterances = []
@@ -54,6 +54,7 @@ class BERTSet(data.Dataset):
 
         sentence = self.utterances[idx]
         slots = self.slot_ids[idx]
+        slots = torch.Tensor(self.slot_ids[idx])
         intent = self.intent_ids[idx]
         words = sentence.split()
 
@@ -72,7 +73,7 @@ class BERTSet(data.Dataset):
             wstart = encoded.word_to_chars(wid).start
             if sentence[wstart - 1] != " " and wprev != wid and i > 0:
 
-                print(f"BET {wid} -> {wprev}")
+                # print(f"BET {wid} -> {wprev}")
                 word_ids[i + 1] = wprev
                 encoded.word_to_tokens
             else:
@@ -86,7 +87,7 @@ class BERTSet(data.Dataset):
             if wid != wprev:
                 mapping.append(i)
             wprev = wid
-
+        mapping = torch.Tensor(mapping)
         # check
         if len(mapping) != len(slots):
             print("ERROR")
@@ -125,22 +126,25 @@ def collate_fn(data, pad_token, slot_pad, device):
         merge from batch * sent_len to batch * max_len
         """
         lengths = [len(seq) for seq in sequences]
-        # max_len = 1 if max(lengths) == 0 else max(lengths)
+        max_len = 1 if max(lengths) == 0 else max(lengths)
 
-        max_len = max(1, max(lengths))
+        # max_len = max(1, max(lengths))
         # Pad token is zero in our case
         # So we create a matrix full of PAD_TOKEN (i.e. 0) with the shape
         # batch_size X maximum length of a sequence
         padded_seqs = torch.LongTensor(len(sequences), max_len).fill_(padding)
+        # breakpoint()
         for i, seq in enumerate(sequences):
-            seq = torch.LongTensor(seq)
+            # breakpoint()
+            # seq = torch.LongTensor(seq)
             end = lengths[i]
             padded_seqs[i, :end] = seq  # We copy each sequence into the matrix
         # print(padded_seqs)
         padded_seqs = (
             padded_seqs.detach()
         )  # We remove these tensors from the computational graph
-        return padded_seqs, torch.Tensor(lengths)
+        # breakpoint()
+        return padded_seqs, lengths
 
     # Sort data by seq lengths
     data.sort(key=lambda x: len(x["utt"]), reverse=True)
@@ -154,8 +158,9 @@ def collate_fn(data, pad_token, slot_pad, device):
     # intent = torch.LongTensor(new_item["intent"])
     pad_utt, len_utt = merge(new_item["utt"], pad_token)
     pad_slots, len_slots = merge(new_item["slots"], slot_pad)
-    pad_map, len_map = merge(new_item["map"], 0)
+    len_slots = torch.LongTensor(len_slots)
     pad_att, len_att = merge(new_item["att"], 0)
+    pad_map, len_map = merge(new_item["map"], 0)
     intent = torch.LongTensor(new_item["intent"])
 
     pad_utt = pad_utt.to(device)
@@ -163,6 +168,7 @@ def collate_fn(data, pad_token, slot_pad, device):
     pad_map = pad_map.to(device)
     pad_att = pad_att.to(device)
     intent = intent.to(device)
+    len_slots = len_slots.to(device)
 
     new_item["utt"] = pad_utt
     new_item["slots"] = pad_slots
@@ -171,6 +177,7 @@ def collate_fn(data, pad_token, slot_pad, device):
     new_item["intent"] = intent
     new_item["len_slots"] = len_slots
 
+    # breakpoint()
     return new_item
 
 
@@ -226,7 +233,7 @@ def get_dataloaders(data_path, pad_token, device, portion=0.10):
     # Dataloader instantiations
     train_loader = DataLoader(
         train_dataset,
-        batch_size=128,
+        batch_size=16,
         collate_fn=partial(
             collate_fn,
             pad_token=train_dataset.PAD_TOKEN_ID,
@@ -237,7 +244,7 @@ def get_dataloaders(data_path, pad_token, device, portion=0.10):
     )
     dev_loader = DataLoader(
         dev_dataset,
-        batch_size=64,
+        batch_size=16,
         collate_fn=partial(
             collate_fn,
             pad_token=train_dataset.PAD_TOKEN_ID,
@@ -247,7 +254,7 @@ def get_dataloaders(data_path, pad_token, device, portion=0.10):
     )
     test_loader = DataLoader(
         test_dataset,
-        batch_size=64,
+        batch_size=16,
         collate_fn=partial(
             collate_fn,
             pad_token=train_dataset.PAD_TOKEN_ID,

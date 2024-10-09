@@ -27,11 +27,10 @@ def train_loop(data, optimizer, criterion_slots, criterion_intents, model, clip=
         mapping = sample["map"]
         att = sample["att"]
         intent_y = sample["intent"]
-        slen = sample["len_slots"]
+
         # breakpoint()
         optimizer.zero_grad()  # Zeroing the gradient
-        intent, slots = model(utt_x, att, mapping, slen)
-        breakpoint()
+        intent, slots = model(utt_x, att, mapping)
 
         loss_intent = criterion_intents(intent, intent_y)
         loss_slot = criterion_slots(slots, slots_y)
@@ -39,8 +38,10 @@ def train_loop(data, optimizer, criterion_slots, criterion_intents, model, clip=
         # Is there another way to do that?
         loss_array.append(loss.item())
         loss.backward()  # Compute the gradient, deleting the computational graph
+
         # clip the gradient to avoid exploding gradients
         torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
+
         optimizer.step()  # Update the weights
 
     avg_loss = np.array(loss_array).mean()
@@ -59,36 +60,55 @@ def eval_loop(data, criterion_slots, criterion_intents, model, lang):
     # softmax = nn.Softmax(dim=1) # Use Softmax if you need the actual probability
     with torch.no_grad():  # It used to avoid the creation of computational graph
         for sample in data:
-            slots, intents = model(sample["utterances"], sample["slots_len"])
-            loss_intent = criterion_intents(intents, sample["intents"])
-            loss_slot = criterion_slots(slots, sample["y_slots"])
+
+            utt_x = sample["utt"]
+            words = sample["words"]
+            slots_y = sample["slots"]
+            mapping = sample["map"]
+            att = sample["att"]
+            intent_y = sample["intent"]
+            lens = sample["len_slots"]
+
+            intent, slots = model(utt_x, att, mapping)
+
+            loss_intent = criterion_intents(intent, intent_y)
+            loss_slot = criterion_slots(slots, slots_y)
+            # breakpoint()
             loss = loss_intent + loss_slot
             loss_array.append(loss.item())
             # Intent inference
             # Get the highest probable class
             out_intents = [
-                lang.id2intent[x] for x in torch.argmax(intents, dim=1).tolist()
+                lang.id2intent[x] for x in torch.argmax(intent, dim=1).tolist()
             ]
-            gt_intents = [lang.id2intent[x] for x in sample["intents"].tolist()]
+
+            gt_intents = [lang.id2intent[x] for x in intent_y.tolist()]
             ref_intents.extend(gt_intents)
             hyp_intents.extend(out_intents)
 
             # Slot inference
             output_slots = torch.argmax(slots, dim=1)
             for id_seq, seq in enumerate(output_slots):
-                length = sample["slots_len"].tolist()[id_seq]
-                utt_ids = sample["utterance"][id_seq][:length].tolist()
-                gt_ids = sample["y_slots"][id_seq].tolist()
+                length = int(lens.tolist()[id_seq])
+                sentence = words[id_seq]
+
+                gt_ids = slots_y[id_seq].tolist()
                 gt_slots = [lang.id2slot[elem] for elem in gt_ids[:length]]
-                utterance = [lang.id2word[elem] for elem in utt_ids]
+
                 to_decode = seq[:length].tolist()
+
+                # compute the reference slots
                 ref_slots.append(
-                    [(utterance[id_el], elem) for id_el, elem in enumerate(gt_slots)]
+                    [(sentence[id_el], elem) for id_el, elem in enumerate(gt_slots)]
                 )
+
+                # compute the hypothesis slots
                 tmp_seq = []
                 for id_el, elem in enumerate(to_decode):
-                    tmp_seq.append((utterance[id_el], lang.id2slot[elem]))
+                    tmp_seq.append((sentence[id_el], lang.id2slot[elem]))
                 hyp_slots.append(tmp_seq)
+    # breakpoint()
+
     try:
         results = evaluate(ref_slots, hyp_slots)
     except Exception as ex:
@@ -131,13 +151,10 @@ def run_experiments(defaults, experiments, glob_args):
 
         print(args)
 
-        emb_size = args["emb_size"]
-        hid_size = args["hid_size"]
         lr = args["lr"]
         OPT = args["OPT"]
         drop = args["drop"]
         var_drop = args["var_drop"]
-        bi = args["bi"]
 
         runs = args["runs"]
         tag = args["tag"]
@@ -180,10 +197,7 @@ def run_experiments(defaults, experiments, glob_args):
                         "model": str(type(model).__name__),
                         "lr": lr,
                         "optim": str(type(optimizer).__name__),
-                        "hid_size": hid_size,
-                        "emb_size": emb_size,
                         "drop": drop,
-                        "var_drop": var_drop,
                         "tag": tag,
                         "runset": run_name,
                         "run": run_n,
@@ -199,6 +213,7 @@ def run_experiments(defaults, experiments, glob_args):
                 loss, avg_loss = train_loop(
                     train_loader, optimizer, criterion_slots, criterion_intents, model
                 )
+
                 if epoch % 1 == 0:
                     results_dev, intent_res, loss_dev, avg_loss_dev = eval_loop(
                         dev_loader, criterion_slots, criterion_intents, model, lang
@@ -213,7 +228,7 @@ def run_experiments(defaults, experiments, glob_args):
                             patience -= 1
 
                     pbar_epochs.set_description(
-                        f"F1 {round_sf(f1,2)} best F1 {round_sf(best_f1,2)} PAT {patience}"
+                        f"F1 {round_sf(f1,3)} loss {round_sf(avg_loss_dev,3)} PAT {patience}"
                     )
 
                     if LOG:
@@ -341,15 +356,12 @@ def get_args():
 
 
 def build_run_name(args, SAVE_PATH):
-    run_name = "test"
+    run_name = "BERT"
 
-    run_name += "_" + str(args["lr"])[2:] + "_" + str(round(args["drop"] * 100))
+    # run_name += "_" + str(args["lr"])[2:] + "_" + str(round(args["drop"] * 100))
 
     if args["var_drop"]:
         run_name += "_VD"
-
-    if args["bi"]:
-        run_name += "_B"
 
     run_name += "_" + generate_id(4)
     run_path = SAVE_PATH + run_name + "/"
@@ -367,7 +379,7 @@ def generate_id(len=5):
 
 
 def round_sf(number, significant=2):
-    return round(number, significant - len(str(number)))
+    return round(number, max(significant, significant - len(str(number))))
 
 
 def load_experiments(json_path):

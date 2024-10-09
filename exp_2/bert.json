@@ -1,0 +1,19 @@
+[
+  {
+    "lr": 0.0001,
+    "EPOCHS": 350,
+    "runs": 5,
+    "PAT": 5,
+    "var_drop": false,
+    "drop": 0,
+    "OPT": "AdamW",
+    "tag": "bert"
+  },
+
+  [
+    {
+      "lr": 0.001,
+      "drop": 0
+    }
+  ]
+]
