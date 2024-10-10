@@ -17,6 +17,18 @@ from utils import get_dataloaders
 
 
 def train_loop(data, optimizer, criterion_slots, criterion_intents, model, clip=5):
+    """
+    Function to train the model
+
+    Parameters:
+    - data (DataLoader): DataLoader object
+    - optimizer (optim): optimizer
+    - criterion_slots (nn.CrossEntropyLoss): loss function for slots
+    - criterion_intents (nn.CrossEntropyLoss): loss function for intents
+    - model (nn.Module): model
+    - clip (int): clipping value
+    """
+
     model.train()
     loss_array = []
     for sample in data:
@@ -37,6 +49,23 @@ def train_loop(data, optimizer, criterion_slots, criterion_intents, model, clip=
 
 
 def eval_loop(data, criterion_slots, criterion_intents, model, lang):
+    """
+    Function to evaluate the model
+
+    Parameters:
+    - data (DataLoader): DataLoader object
+    - criterion_slots (torch.nn): loss function for slots
+    - criterion_intents (torch.nn): loss function for intents
+    - model (nn.Module): model
+    - lang (Lang): language object
+
+    Returns:
+    - results (dict): results from the evaluation
+    - report_intent (dict): intent classification report
+    - loss_array (list): list with the losses
+    - loss_avg (float): average loss
+    """
+
     model.eval()
     loss_array = []
 
@@ -120,6 +149,14 @@ def init_weights(mat):
 
 
 def run_experiments(defaults, experiments, glob_args):
+    """
+    Function to run the experiments, manage the training and the logging
+
+    Parameters:
+    - defaults (dict): default parameters
+    - experiments (list): list of experiments
+    - glob_args (dict): global arguments
+    """
 
     LOG = not glob_args["no_log"]
     SAVE_PATH = glob_args["save_path"]
@@ -298,7 +335,17 @@ def run_experiments(defaults, experiments, glob_args):
         print("Intent Acc", round(intent_acc.mean(), 3), "+-", round(slot_f1s.std(), 3))
 
 
+############################################################################################################
+# Functions to handle the experiments
+
+
 def get_args():
+    """
+    Function to get the arguments from the command line
+
+    Returns:
+    - args (dict): arguments
+    """
     parser = argparse.ArgumentParser(
         prog="main.py",
         description="""Get the params""",
@@ -356,6 +403,18 @@ def get_args():
 
 
 def build_run_name(args, SAVE_PATH):
+    """
+    Function to build the run name and the path
+
+    Parameters:
+    - args (dict): arguments
+    - SAVE_PATH (str): path to save the model
+
+    Returns:
+    - run_name (str): name of the run
+    - run_path (str): path to save the model
+    """
+
     run_name = "test"
 
     run_name += "_" + str(args["lr"])[2:] + "_" + str(round(args["drop"] * 100))
@@ -377,15 +436,39 @@ def build_run_name(args, SAVE_PATH):
 
 
 def generate_id(len=5):
+    """
+    Function to generate a random id for the runs
+    """
     STR_KEY_GEN = "ABCDEFGHIJKLMNOPQRSTUVWXYzabcdefghijklmnopqrstuvwxyz"
     return "".join(random.choice(STR_KEY_GEN) for _ in range(len))
 
 
 def round_sf(number, significant=2):
-    return round(number, significant - len(str(number)))
+    """
+    Function to round a number to a certain number of significant figures
+
+    Parameters:
+    - number (float): number to round
+    - significant (int): number of significant figures
+
+    Returns:
+    - rounded number (float)
+    """
+    return round(number, max(significant, significant - len(str(number))))
 
 
 def load_experiments(json_path):
+    """
+    Function to load the experiments from a json file
+
+    Parameters:
+    - json_path (str): path to the json file
+
+    Returns:
+    - defaults (dict): default parameters
+    - experiments (list): list of experiments
+    """
+
     print("loading from json...")
     if os.path.exists(json_path):
         filename = json_path.split("/")[-1]
@@ -398,6 +481,20 @@ def load_experiments(json_path):
 
 
 def remove_outliers(slot_f1s, intent_acc):
+    """
+    Some runs might end too early or too late, leading to outliers.
+    This function removes the outliers from the results using the z-score
+
+    Parameters:
+    - slot_f1s (list): list of slot f1 scores
+    - intent_acc (list): list of intent accuracies
+
+    Returns:
+    - clean_slot_f1s_mean (float): mean of the slot f1 scores
+    - clean_slot_f1s_std (float): standard deviation of the slot f1 scores
+    - clean_intent_acc_mean (float): mean of the intent accuracies
+    - clean_intent_acc_std (float): standard deviation of the intent accuracies
+    """
     slot_f1s = np.asarray(slot_f1s)
     intent_acc = np.asarray(intent_acc)
 

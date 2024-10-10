@@ -17,6 +17,17 @@ from utils import PennTreeBank, DataLoader, Lang, read_file, collate_fn
 
 
 def train_loop(data, optimizer, criterion, model, clip=5):
+    """
+    Function to train the model
+
+    Parameters:
+    - data (DataLoader): DataLoader object
+    - optimizer (optim): optimizer
+    - criterion (nn.CrossEntropyLoss): loss function
+    - model (nn.Module): model
+    - clip (int): clipping value
+    """
+
     model.train()
     loss_array = []
     number_of_tokens = []
@@ -39,6 +50,19 @@ def train_loop(data, optimizer, criterion, model, clip=5):
 
 
 def eval_loop(data, eval_criterion, model):
+    """
+    Function to evaluate the model
+
+    Parameters:
+    - data (DataLoader): DataLoader object
+    - eval_criterion (torch.nn): loss function
+    - model (nn.Module): model
+
+    Returns:
+    - ppl (float): perplexity
+    - loss_to_return (float): loss
+    """
+
     model.eval()
     loss_to_return = []
     loss_array = []
@@ -57,6 +81,14 @@ def eval_loop(data, eval_criterion, model):
 
 
 def run_experiments(defaults, experiments, glob_args):
+    """
+    Function to run the experiments, manage the training and the logging
+
+    Parameters:
+    - defaults (dict): default parameters
+    - experiments (list): list of experiments
+    - glob_args (dict): global arguments
+    """
 
     TRAIN_BS = glob_args["train_batch_size"]
     DEV_BS = glob_args["dev_batch_size"]
@@ -396,7 +428,18 @@ def init_weights(mat):
                     m.bias.data.fill_(0.01)
 
 
+############################################################################################################
+# Functions to handle the experiments
+
+
 def build_run_name(arch, emb_drop, out_drop, lr, var_drop, tying, OPT, SAVE_PATH):
+    """
+    Function to build the run name and the path
+
+    Returns:
+    - run_name (str): name of the run
+    - run_path (str): path to save the model
+    """
     run_name = (
         f"{arch}_{int(emb_drop*100)}_{int(out_drop*100)}_{str(lr).replace('.','-')}"
     )
@@ -418,11 +461,20 @@ def build_run_name(arch, emb_drop, out_drop, lr, var_drop, tying, OPT, SAVE_PATH
 
 
 def generate_id(len=5):
+    """
+    Function to generate a random id for the runs
+    """
     STR_KEY_GEN = "ABCDEFGHIJKLMNOPQRSTUVWXYzabcdefghijklmnopqrstuvwxyz"
     return "".join(random.choice(STR_KEY_GEN) for _ in range(len))
 
 
 def get_args():
+    """
+    Function to get the arguments from the command line
+
+    Returns:
+    - args (dict): arguments
+    """
     parser = argparse.ArgumentParser(
         prog="main.py",
         description="""Get the params""",
@@ -507,6 +559,17 @@ def get_args():
 
 
 def load_experiments(json_path):
+    """
+    Function to load the experiments from a json file
+
+    Parameters:
+    - json_path (str): path to the json file
+
+    Returns:
+    - defaults (dict): default parameters
+    - experiments (list): list of experiments
+    """
+
     print("loading from json...")
     if os.path.exists(json_path):
         filename = json_path.split("/")[-1]
