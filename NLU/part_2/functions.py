@@ -203,6 +203,7 @@ def run_experiments(defaults, experiments, glob_args):
                     name=run_name + "_" + str(run_n),
                     config={
                         "model": str(type(model).__name__),
+                        "model_name": model_name,
                         "lr": lr,
                         "optim": str(type(optimizer).__name__),
                         "drop": drop,

@@ -12,10 +12,10 @@
 
   [
     {
-      "drop": 0
+      "model_name": "roberta-base"
     },
     {
-      "model_name": "roberta-base"
+      "drop": 0
     },
     {
       "drop": 0.25
