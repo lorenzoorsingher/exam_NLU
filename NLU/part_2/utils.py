@@ -32,6 +32,8 @@ class BERTSet(data.Dataset):
 
     def __init__(self, dataset, lang, unk="unk"):
 
+        self.unk = unk
+        self.lang = lang
         self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
         self.PAD_TOKEN_ID = self.tokenizer.pad_token_id
         self.SLOT_PAD = 0
@@ -51,11 +53,12 @@ class BERTSet(data.Dataset):
         return len(self.utterances)
 
     def __getitem__(self, idx):
-
+        # idx = 574
         sentence = self.utterances[idx]
         slots = self.slot_ids[idx]
-        slots = torch.Tensor(self.slot_ids[idx])
+        slots = self.slot_ids[idx]
         intent = self.intent_ids[idx]
+        intent = torch.LongTensor([intent])
         words = sentence.split()
 
         # sentence = "what flights leaving pittsburgh arrive in denver and leave after say 6 o'clock at night"
@@ -67,38 +70,39 @@ class BERTSet(data.Dataset):
         tokens = encoded.tokens()
         word_ids = encoded.word_ids()
 
-        mapping2 = []
         wprev = None
         for i, wid in enumerate(word_ids[1:-1]):
             wstart = encoded.word_to_chars(wid).start
             if sentence[wstart - 1] != " " and wprev != wid and i > 0:
-
                 # print(f"BET {wid} -> {wprev}")
                 word_ids[i + 1] = wprev
                 encoded.word_to_tokens
             else:
                 wprev = wid
-            if word_ids[i + 1] != wprev:
-                mapping2.append(i)
 
-        mapping = []
+        slots_align = []
         wprev = None
+        slots_idx = 0
         for i, wid in enumerate(word_ids[1:-1]):
             if wid != wprev:
-                mapping.append(i)
-            wprev = wid
-        mapping = torch.Tensor(mapping)
-        # check
-        if len(mapping) != len(slots):
-            print("ERROR")
-            exit()
+                slots_align.append(slots[slots_idx])
+                slots_idx += 1
+                wprev = wid
+            else:
+                slots_align.append(self.SLOT_PAD)
 
+        slots_align = [self.SLOT_PAD] + slots_align + [self.SLOT_PAD]
+        gt_slots = [self.lang.id2slot[elem] for elem in slots_align]
+        slots_align = torch.LongTensor(slots_align)
+
+        # for tkn, wid, slot in zip(tokens, word_ids, gt_slots):
+        #     print(f"{tkn} \t{wid} \t{slot}")
+        # breakpoint()
         sample = {
             "utt": utt,
             "att": att,
-            "map": mapping,
             "words": words,
-            "slots": slots,
+            "slots": slots_align,
             "intent": intent,
         }
 
@@ -152,32 +156,24 @@ def collate_fn(data, pad_token, slot_pad, device):
     for key in data[0].keys():
         new_item[key] = [d[key] for d in data]
 
-    # We just need one length for packed pad seq, since len(utt) == len(slots)
-    # src_utt, _ = merge(new_item["utterance"])
-    # y_slots, y_lengths = merge(new_item["slots"])
-    # intent = torch.LongTensor(new_item["intent"])
     pad_utt, len_utt = merge(new_item["utt"], pad_token)
     pad_slots, len_slots = merge(new_item["slots"], slot_pad)
     len_slots = torch.LongTensor(len_slots)
     pad_att, len_att = merge(new_item["att"], 0)
-    pad_map, len_map = merge(new_item["map"], 0)
     intent = torch.LongTensor(new_item["intent"])
 
     pad_utt = pad_utt.to(device)
     pad_slots = pad_slots.to(device)
-    pad_map = pad_map.to(device)
     pad_att = pad_att.to(device)
     intent = intent.to(device)
     len_slots = len_slots.to(device)
 
     new_item["utt"] = pad_utt
     new_item["slots"] = pad_slots
-    new_item["map"] = pad_map
     new_item["att"] = pad_att
     new_item["intent"] = intent
     new_item["len_slots"] = len_slots
 
-    # breakpoint()
     return new_item
 
 
@@ -233,7 +229,7 @@ def get_dataloaders(data_path, pad_token, device, portion=0.10):
     # Dataloader instantiations
     train_loader = DataLoader(
         train_dataset,
-        batch_size=16,
+        batch_size=128,
         collate_fn=partial(
             collate_fn,
             pad_token=train_dataset.PAD_TOKEN_ID,
@@ -244,7 +240,7 @@ def get_dataloaders(data_path, pad_token, device, portion=0.10):
     )
     dev_loader = DataLoader(
         dev_dataset,
-        batch_size=16,
+        batch_size=64,
         collate_fn=partial(
             collate_fn,
             pad_token=train_dataset.PAD_TOKEN_ID,
@@ -254,7 +250,7 @@ def get_dataloaders(data_path, pad_token, device, portion=0.10):
     )
     test_loader = DataLoader(
         test_dataset,
-        batch_size=16,
+        batch_size=64,
         collate_fn=partial(
             collate_fn,
             pad_token=train_dataset.PAD_TOKEN_ID,

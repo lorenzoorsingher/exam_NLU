@@ -1,10 +1,10 @@
 [
   {
+    "model_name": "bert-base-uncased",
     "lr": 0.0001,
-    "EPOCHS": 350,
+    "EPOCHS": 100,
     "runs": 5,
-    "PAT": 5,
-    "var_drop": false,
+    "PAT": 3,
     "drop": 0,
     "OPT": "AdamW",
     "tag": "bert"
@@ -12,8 +12,13 @@
 
   [
     {
-      "lr": 0.001,
       "drop": 0
+    },
+    {
+      "model_name": "roberta-base"
+    },
+    {
+      "drop": 0.25
     }
   ]
 ]

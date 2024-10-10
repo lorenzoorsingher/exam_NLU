@@ -24,13 +24,12 @@ def train_loop(data, optimizer, criterion_slots, criterion_intents, model, clip=
 
         utt_x = sample["utt"]
         slots_y = sample["slots"]
-        mapping = sample["map"]
         att = sample["att"]
         intent_y = sample["intent"]
 
         # breakpoint()
         optimizer.zero_grad()  # Zeroing the gradient
-        intent, slots = model(utt_x, att, mapping)
+        intent, slots = model(utt_x, att)
 
         loss_intent = criterion_intents(intent, intent_y)
         loss_slot = criterion_slots(slots, slots_y)
@@ -46,6 +45,30 @@ def train_loop(data, optimizer, criterion_slots, criterion_intents, model, clip=
 
     avg_loss = np.array(loss_array).mean()
     return loss_array, avg_loss
+
+
+def intent_inference(intent, intent_y, lang):
+    out_intents = torch.argmax(intent, dim=1).tolist()
+    pred_intents = [lang.id2intent[x] for x in out_intents]
+    gt_intents = [lang.id2intent[x] for x in intent_y.tolist()]
+    return gt_intents, pred_intents
+
+
+def slot_inference(out_slot, gt_ids, sentence, length, lang):
+
+    out_slot = out_slot[1 : length - 1]
+    gt_ids = gt_ids[1 : length - 1]
+
+    hyp_slot = []
+    ref_slot = []
+    slot_idx = 0
+    for pred_id, gt_id in zip(out_slot, gt_ids):
+        if gt_id != lang.pad_token:
+            word = sentence[slot_idx]
+            hyp_slot.append((word, lang.id2slot[pred_id.item()]))
+            ref_slot.append((word, lang.id2slot[gt_id]))
+            slot_idx += 1
+    return hyp_slot, ref_slot
 
 
 def eval_loop(data, criterion_slots, criterion_intents, model, lang):
@@ -64,50 +87,36 @@ def eval_loop(data, criterion_slots, criterion_intents, model, lang):
             utt_x = sample["utt"]
             words = sample["words"]
             slots_y = sample["slots"]
-            mapping = sample["map"]
             att = sample["att"]
             intent_y = sample["intent"]
             lens = sample["len_slots"]
 
-            intent, slots = model(utt_x, att, mapping)
+            intent, slots = model(utt_x, att)
 
             loss_intent = criterion_intents(intent, intent_y)
             loss_slot = criterion_slots(slots, slots_y)
-            # breakpoint()
             loss = loss_intent + loss_slot
             loss_array.append(loss.item())
-            # Intent inference
-            # Get the highest probable class
-            out_intents = [
-                lang.id2intent[x] for x in torch.argmax(intent, dim=1).tolist()
-            ]
 
-            gt_intents = [lang.id2intent[x] for x in intent_y.tolist()]
+            # Intent inference
+            gt_intents, pred_intents = intent_inference(intent, intent_y, lang)
             ref_intents.extend(gt_intents)
-            hyp_intents.extend(out_intents)
+            hyp_intents.extend(pred_intents)
 
             # Slot inference
             output_slots = torch.argmax(slots, dim=1)
-            for id_seq, seq in enumerate(output_slots):
-                length = int(lens.tolist()[id_seq])
-                sentence = words[id_seq]
 
-                gt_ids = slots_y[id_seq].tolist()
-                gt_slots = [lang.id2slot[elem] for elem in gt_ids[:length]]
-
-                to_decode = seq[:length].tolist()
-
-                # compute the reference slots
-                ref_slots.append(
-                    [(sentence[id_el], elem) for id_el, elem in enumerate(gt_slots)]
+            for i, out_slot in enumerate(output_slots):
+                sent = words[i]
+                length = int(lens.tolist()[i])
+                gt_ids = slots_y[i].tolist()
+                hyp_slot, ref_slot = slot_inference(
+                    out_slot, gt_ids, sent, length, lang
                 )
-
-                # compute the hypothesis slots
-                tmp_seq = []
-                for id_el, elem in enumerate(to_decode):
-                    tmp_seq.append((sentence[id_el], lang.id2slot[elem]))
-                hyp_slots.append(tmp_seq)
-    # breakpoint()
+                hyp_slots.append(hyp_slot)
+                ref_slots.append(ref_slot)
+            # for a, b in zip(ref_slots, hyp_slots):
+            #     print(f"REF: {a}\t HYP: {b}")
 
     try:
         results = evaluate(ref_slots, hyp_slots)
@@ -119,7 +128,7 @@ def eval_loop(data, criterion_slots, criterion_intents, model, lang):
         hyp_s = set([x[1] for x in hyp_slots])
         # print(hyp_s.difference(ref_s))
         results = {"total": {"f": 0}}
-
+    # breakpoint()
     report_intent = classification_report(
         ref_intents, hyp_intents, zero_division=False, output_dict=True
     )
@@ -154,10 +163,9 @@ def run_experiments(defaults, experiments, glob_args):
         lr = args["lr"]
         OPT = args["OPT"]
         drop = args["drop"]
-        var_drop = args["var_drop"]
-
         runs = args["runs"]
         tag = args["tag"]
+        model_name = args["model_name"]
 
         run_name, run_path = build_run_name(args, SAVE_PATH)
 
@@ -165,7 +173,6 @@ def run_experiments(defaults, experiments, glob_args):
 
         EPOCHS = args["EPOCHS"]
         PAT = args["PAT"]
-        # SAVE_RATE = 10000000
 
         slot_f1s, intent_acc = [], []
 
@@ -177,6 +184,8 @@ def run_experiments(defaults, experiments, glob_args):
             model = MyBert(
                 out_slot,
                 out_int,
+                drop,
+                model_name,
             ).to(DEVICE)
 
             # model.apply(init_weights)
@@ -185,7 +194,6 @@ def run_experiments(defaults, experiments, glob_args):
                 optimizer = optim.Adam(model.parameters(), lr=lr)
             elif OPT == "AdamW":
                 optimizer = optim.AdamW(model.parameters(), lr=lr)
-
             criterion_slots = nn.CrossEntropyLoss(ignore_index=PAD_TOKEN)
             criterion_intents = nn.CrossEntropyLoss()
 
@@ -203,7 +211,6 @@ def run_experiments(defaults, experiments, glob_args):
                         "run": run_n,
                     },
                 )
-
             best_f1 = 0
             patience = PAT
             pbar_epochs = tqdm(range(1, EPOCHS))
@@ -224,8 +231,7 @@ def run_experiments(defaults, experiments, glob_args):
                         best_f1 = f1
                         patience = PAT
                     else:
-                        if epoch > 10:  # make sure early stopping
-                            patience -= 1
+                        patience -= 1
 
                     pbar_epochs.set_description(
                         f"F1 {round_sf(f1,3)} loss {round_sf(avg_loss_dev,3)} PAT {patience}"
@@ -252,7 +258,6 @@ def run_experiments(defaults, experiments, glob_args):
             )
             intent_acc.append(intent_test["accuracy"])
             slot_f1s.append(results_test["total"]["f"])
-
             if LOG:
 
                 loss_gap = (avg_loss_test - avg_loss_dev) / avg_loss_test
@@ -296,6 +301,76 @@ def run_experiments(defaults, experiments, glob_args):
 
 
 #######################################################################################
+
+
+def round_sf(number, significant=2):
+    return round(number, max(significant, significant - len(str(number))))
+
+
+def build_run_name(args, SAVE_PATH):
+    run_name = "BERT"
+
+    run_name += "_" + str(args["lr"])[2:] + "_" + str(round(args["drop"] * 100))
+
+    run_name += "_" + generate_id(4)
+    run_path = SAVE_PATH + run_name + "/"
+
+    if os.path.exists(run_path):
+        while os.path.exists(run_path):
+            run_name += "_" + generate_id(5)
+            run_path = SAVE_PATH + run_name + "/"
+    return run_name, run_path
+
+
+def generate_id(len=5):
+    STR_KEY_GEN = "ABCDEFGHIJKLMNOPQRSTUVWXYzabcdefghijklmnopqrstuvwxyz"
+    return "".join(random.choice(STR_KEY_GEN) for _ in range(len))
+
+
+def load_experiments(json_path):
+    print("loading from json...")
+    if os.path.exists(json_path):
+        filename = json_path.split("/")[-1]
+        print("loading from ", filename)
+        defaults, experiments = json.load(open(json_path))
+    else:
+        print("json not found, exiting...")
+        exit()
+    return defaults, experiments
+
+
+def remove_outliers(slot_f1s, intent_acc):
+    slot_f1s = np.asarray(slot_f1s)
+    intent_acc = np.asarray(intent_acc)
+
+    slot_f1s_mean = round(slot_f1s.mean(), 3)
+
+    slot_f1s_std = round(slot_f1s.std(), 3)
+
+    clean_slot_f1s = []
+    clean_intent_acc = []
+    for idx, (score, acc) in enumerate(zip(slot_f1s, intent_acc)):
+        z = abs((score - slot_f1s_mean) / slot_f1s_std)
+        if z < 3:
+            clean_slot_f1s.append(score)
+            clean_intent_acc.append(acc)
+        else:
+            print("Removing outlier ", idx + 1)
+    clean_slot_f1s = np.asarray(clean_slot_f1s)
+    clean_intent_acc = np.asarray(clean_intent_acc)
+
+    clean_slot_f1s_mean = round(clean_slot_f1s.mean(), 3)
+    clean_slot_f1s_std = round(clean_slot_f1s.std(), 3)
+
+    clean_intent_acc_mean = round(clean_intent_acc.mean(), 3)
+    clean_intent_acc_std = round(clean_intent_acc.std(), 3)
+
+    return (
+        clean_slot_f1s_mean,
+        clean_slot_f1s_std,
+        clean_intent_acc_mean,
+        clean_intent_acc_std,
+    )
 
 
 def get_args():
@@ -347,82 +422,9 @@ def get_args():
         "--save-path",
         type=str,
         help="Set checkpoint save path",
-        default="NLU/part_1/bin/",
+        default="NLU/part_2/bin/",
         metavar="",
     )
 
     args = vars(parser.parse_args())
     return args
-
-
-def build_run_name(args, SAVE_PATH):
-    run_name = "BERT"
-
-    # run_name += "_" + str(args["lr"])[2:] + "_" + str(round(args["drop"] * 100))
-
-    if args["var_drop"]:
-        run_name += "_VD"
-
-    run_name += "_" + generate_id(4)
-    run_path = SAVE_PATH + run_name + "/"
-
-    if os.path.exists(run_path):
-        while os.path.exists(run_path):
-            run_name += "_" + generate_id(5)
-            run_path = SAVE_PATH + run_name + "/"
-    return run_name, run_path
-
-
-def generate_id(len=5):
-    STR_KEY_GEN = "ABCDEFGHIJKLMNOPQRSTUVWXYzabcdefghijklmnopqrstuvwxyz"
-    return "".join(random.choice(STR_KEY_GEN) for _ in range(len))
-
-
-def round_sf(number, significant=2):
-    return round(number, max(significant, significant - len(str(number))))
-
-
-def load_experiments(json_path):
-    print("loading from json...")
-    if os.path.exists(json_path):
-        filename = json_path.split("/")[-1]
-        print("loading from ", filename)
-        defaults, experiments = json.load(open(json_path))
-    else:
-        print("json not found, exiting...")
-        exit()
-    return defaults, experiments
-
-
-def remove_outliers(slot_f1s, intent_acc):
-    slot_f1s = np.asarray(slot_f1s)
-    intent_acc = np.asarray(intent_acc)
-
-    slot_f1s_mean = round(slot_f1s.mean(), 3)
-
-    slot_f1s_std = round(slot_f1s.std(), 3)
-
-    clean_slot_f1s = []
-    clean_intent_acc = []
-    for idx, (score, acc) in enumerate(zip(slot_f1s, intent_acc)):
-        z = abs((score - slot_f1s_mean) / slot_f1s_std)
-        if z < 3:
-            clean_slot_f1s.append(score)
-            clean_intent_acc.append(acc)
-        else:
-            print("Removing outlier ", idx + 1)
-    clean_slot_f1s = np.asarray(clean_slot_f1s)
-    clean_intent_acc = np.asarray(clean_intent_acc)
-
-    clean_slot_f1s_mean = round(clean_slot_f1s.mean(), 3)
-    clean_slot_f1s_std = round(clean_slot_f1s.std(), 3)
-
-    clean_intent_acc_mean = round(clean_intent_acc.mean(), 3)
-    clean_intent_acc_std = round(clean_intent_acc.std(), 3)
-
-    return (
-        clean_slot_f1s_mean,
-        clean_slot_f1s_std,
-        clean_intent_acc_mean,
-        clean_intent_acc_std,
-    )
