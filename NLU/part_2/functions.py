@@ -230,6 +230,7 @@ def run_experiments(defaults, experiments, glob_args):
         runs = args["runs"]
         tag = args["tag"]
         model_name = args["model_name"]
+        pooler = args["pooler"]
 
         run_name, run_path = build_run_name(args, SAVE_PATH)
 
@@ -250,6 +251,7 @@ def run_experiments(defaults, experiments, glob_args):
                 out_int,
                 drop,
                 model_name,
+                pooler,
             ).to(DEVICE)
 
             # model.apply(init_weights)
@@ -271,6 +273,7 @@ def run_experiments(defaults, experiments, glob_args):
                         "lr": lr,
                         "optim": str(type(optimizer).__name__),
                         "drop": drop,
+                        "pooler": pooler,
                         "tag": tag,
                         "runset": run_name,
                         "run": run_n,
@@ -395,9 +398,16 @@ def build_run_name(args, SAVE_PATH):
     - run_name (str): name of the run
     - run_path (str): path to save the model
     """
-    run_name = "BERT"
+
+    if args["model_name"].split("-")[0] == "bert":
+        run_name = "BERT"
+    else:
+        run_name = "ROBERTA"
 
     run_name += "_" + str(args["lr"])[2:] + "_" + str(round(args["drop"] * 100))
+
+    if args["pooler"]:
+        run_name += "_P"
 
     run_name += "_" + generate_id(4)
     run_path = SAVE_PATH + run_name + "/"

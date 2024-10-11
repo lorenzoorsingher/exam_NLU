@@ -13,10 +13,10 @@
 
   [
     {
-      "pooler": false
+      "pooler": true
     },
     {
-      "pooler": true
+      "pooler": false
     }
   ]
 ]
