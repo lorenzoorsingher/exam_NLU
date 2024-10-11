@@ -243,7 +243,7 @@ def run_experiments(defaults, experiments, glob_args):
 
         print("[TRAIN] Starting ", run_name)
 
-        pbar_runs = tqdm(range(1, runs))
+        pbar_runs = tqdm(range(1, runs + 1))
         for run_n in pbar_runs:
 
             model = MyBert(
