@@ -67,5 +67,5 @@ class MyBert(nn.Module):
         sequence_output = outputs.last_hidden_state
         slot_logits = self.slot_classifier(self.dropout(sequence_output))
         slot_logits = slot_logits.permute(0, 2, 1)
-        breakpoint()
+        # breakpoint()
         return intent_logits, slot_logits
