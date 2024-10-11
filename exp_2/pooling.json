@@ -14,10 +14,20 @@
 
   [
     {
-      "pooler": true
+      "custom_pooler": false
     },
     {
-      "pooler": false
+      "pooler": true,
+      "custom_pooler": true
+    },
+    {
+      "pooler": true,
+      "drop": 0.25
+    },
+    {
+      "pooler": true,
+      "drop": 0.25,
+      "lr": 0.0002
     }
   ]
 ]
