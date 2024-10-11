@@ -13,6 +13,7 @@ class MyBert(nn.Module):
         intent_size,
         drop=0.1,
         model_name="bert-base-uncased",
+        pooler=False,
     ):
         super(MyBert, self).__init__()
 
@@ -21,7 +22,8 @@ class MyBert(nn.Module):
         config = AutoConfig.from_pretrained(model_name)
         self.bert = AutoModel.from_pretrained(model_name)
 
-        # self.tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+        self.pooler = pooler
+
         # config = self.bert.config
         self.dropout = nn.Dropout(drop)
 
@@ -37,13 +39,15 @@ class MyBert(nn.Module):
         outputs = self.bert(input_ids=input, attention_mask=attention_mask)
 
         # CLS token embedding for intent classification
-        # cls_output = outputs.pooler_output
-        cls_output = outputs.last_hidden_state[:, 0]
+        if self.pooler:
+            cls_output = outputs.pooler_output
+        else:
+            cls_output = outputs.last_hidden_state[:, 0]
         intent_logits = self.intent_classifier(self.dropout(cls_output))
 
         # Token-level embeddings for slot classification
         sequence_output = outputs.last_hidden_state
         slot_logits = self.slot_classifier(self.dropout(sequence_output))
         slot_logits = slot_logits.permute(0, 2, 1)
-
+        breakpoint()
         return intent_logits, slot_logits

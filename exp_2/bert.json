@@ -6,19 +6,17 @@
     "runs": 5,
     "PAT": 3,
     "drop": 0,
+    "pooler": false,
     "OPT": "AdamW",
     "tag": "bert"
   },
 
   [
     {
-      "model_name": "roberta-base"
+      "pooler": false
     },
     {
-      "drop": 0
-    },
-    {
-      "drop": 0.25
+      "pooler": true
     }
   ]
 ]
