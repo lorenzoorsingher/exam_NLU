@@ -342,7 +342,7 @@ def run_experiments(defaults, experiments, glob_args):
                 )
 
                 # on last run log the mean and std of the results
-                if run_n == runs - 1:
+                if run_n == runs:
 
                     slot_f1s_mean, slot_f1s_std, intent_acc_mean, intent_acc_std = (
                         remove_outliers(slot_f1s, intent_acc)
@@ -408,6 +408,9 @@ def build_run_name(args, SAVE_PATH):
 
     if args["pooler"]:
         run_name += "_P"
+
+    if args["custom_pooler"]:
+        run_name += "_CP"
 
     run_name += "_" + generate_id(4)
     run_path = SAVE_PATH + run_name + "/"
