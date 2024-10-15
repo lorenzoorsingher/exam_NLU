@@ -415,7 +415,7 @@ def build_run_name(args, SAVE_PATH):
     - run_path (str): path to save the model
     """
 
-    run_name = "test"
+    run_name = "NLU"
 
     run_name += "_" + str(args["lr"])[2:] + "_" + str(round(args["drop"] * 100))
 
