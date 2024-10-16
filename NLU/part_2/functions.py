@@ -59,6 +59,50 @@ def train_loop(data, optimizer, criterion_slots, criterion_intents, model, clip=
     return loss_array, avg_loss
 
 
+def train_loop_sch(
+    data, optimizer, scheduler, criterion_slots, criterion_intents, model, clip=5
+):
+    """
+    Function to train the model
+
+    Parameters:
+    - data (DataLoader): DataLoader object
+    - optimizer (optim): optimizer
+    - criterion_slots (nn.CrossEntropyLoss): loss function for slots
+    - criterion_intents (nn.CrossEntropyLoss): loss function for intents
+    - model (nn.Module): model
+    - clip (int): clipping value
+    """
+
+    model.train()
+    loss_array = []
+    for sample in data:
+
+        utt_x = sample["utt"]
+        slots_y = sample["slots"]
+        att = sample["att"]
+        intent_y = sample["intent"]
+
+        # breakpoint()
+        optimizer.zero_grad()  # Zeroing the gradient
+        intent, slots = model(utt_x, att)
+
+        loss_intent = criterion_intents(intent, intent_y)
+        loss_slot = criterion_slots(slots, slots_y)
+        loss = loss_intent + loss_slot  # In joint training we sum the losses.
+        # Is there another way to do that?
+        loss_array.append(loss.item())
+        loss.backward()  # Compute the gradient, deleting the computational graph
+
+        # clip the gradient to avoid exploding gradients
+        torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
+        optimizer.step()  # Update the weights
+        scheduler.step()  # Update the optimizer
+
+    avg_loss = np.array(loss_array).mean()
+    return loss_array, avg_loss
+
+
 def intent_inference(intent, intent_y, lang):
     """
     Prepare the intent inference for the evaluation
@@ -226,6 +270,7 @@ def run_experiments(defaults, experiments, glob_args):
 
         lr = args["lr"]
         OPT = args["OPT"]
+        SCH = args["SCH"]
         drop = args["drop"]
         runs = args["runs"]
         tag = args["tag"]
@@ -260,6 +305,7 @@ def run_experiments(defaults, experiments, glob_args):
                 optimizer = optim.Adam(model.parameters(), lr=lr)
             elif OPT == "AdamW":
                 optimizer = optim.AdamW(model.parameters(), lr=lr)
+
             criterion_slots = nn.CrossEntropyLoss(ignore_index=PAD_TOKEN)
             criterion_intents = nn.CrossEntropyLoss()
 
@@ -274,6 +320,7 @@ def run_experiments(defaults, experiments, glob_args):
                         "optim": str(type(optimizer).__name__),
                         "drop": drop,
                         "pooler": pooler,
+                        "scheduler": SCH,
                         "tag": tag,
                         "runset": run_name,
                         "run": run_n,
@@ -285,10 +332,34 @@ def run_experiments(defaults, experiments, glob_args):
 
             best_model = None
             for epoch in pbar_epochs:
-                loss, avg_loss = train_loop(
-                    train_loader, optimizer, criterion_slots, criterion_intents, model
-                )
 
+                if SCH == "none":
+                    loss, avg_loss = train_loop(
+                        train_loader,
+                        optimizer,
+                        criterion_slots,
+                        criterion_intents,
+                        model,
+                    )
+                else:
+                    # breakpoint()
+                    if SCH == "cosine":
+                        scheduler = optim.lr_scheduler.CosineAnnealingLR(
+                            optimizer, T_max=EPOCHS
+                        )
+                    if SCH == "plateau":
+                        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+                            optimizer, "min", factor=0.5, patience=PAT // 2
+                        )
+
+                    loss, avg_loss = train_loop_sch(
+                        train_loader,
+                        optimizer,
+                        scheduler,
+                        criterion_slots,
+                        criterion_intents,
+                        model,
+                    )
                 if epoch % 1 == 0:
                     results_dev, intent_res, loss_dev, avg_loss_dev = eval_loop(
                         dev_loader, criterion_slots, criterion_intents, model, lang
