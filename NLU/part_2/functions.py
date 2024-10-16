@@ -98,10 +98,10 @@ def train_loop_sch(
         torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
         optimizer.step()  # Update the weights
 
-        if type(scheduler).__name__ == "ReduceLROnPlateau":
-            scheduler.step(loss)
-        else:
-            scheduler.step()  # Update the optimizer
+    if type(scheduler).__name__ == "ReduceLROnPlateau":
+        scheduler.step(loss)
+    else:
+        scheduler.step()  # Update the optimizer
 
     avg_loss = np.array(loss_array).mean()
     return loss_array, avg_loss
