@@ -1,0 +1,26 @@
+[
+  {
+    "model_name": "bert-base-uncased",
+    "lr": 0.0001,
+    "EPOCHS": 100,
+    "runs": 1,
+    "PAT": 5,
+    "drop": 0,
+    "pooler": false,
+    "SCH": "none",
+    "sch_in": true,
+    "custom_pooler": false,
+    "OPT": "AdamW",
+    "tag": "bert_more"
+  },
+
+  [
+    {
+      "PAT": 7,
+      "SCH": "plateau"
+    },
+    {
+      "SCH": "cosine"
+    }
+  ]
+]
