@@ -364,34 +364,34 @@ def run_experiments(defaults, experiments, glob_args):
                         criterion_intents,
                         model,
                     )
-                if epoch % 1 == 0:
-                    results_dev, intent_res, loss_dev, avg_loss_dev = eval_loop(
-                        dev_loader, criterion_slots, criterion_intents, model, lang
+
+                results_dev, intent_res, loss_dev, avg_loss_dev = eval_loop(
+                    dev_loader, criterion_slots, criterion_intents, model, lang
+                )
+                f1 = results_dev["total"]["f"]
+
+                if f1 > best_f1:
+                    best_f1 = f1
+                    patience = PAT
+                else:
+                    patience -= 1
+
+                pbar_epochs.set_description(
+                    f"F1 {round_sf(f1,3)} loss {round_sf(avg_loss_dev,3)} PAT {patience}"
+                )
+
+                if LOG:
+                    wandb.log(
+                        {
+                            "loss": avg_loss,
+                            "val loss": avg_loss_dev,
+                            "F1": f1,
+                            "acc": intent_res["accuracy"],
+                        }
                     )
-                    f1 = results_dev["total"]["f"]
 
-                    if f1 > best_f1:
-                        best_f1 = f1
-                        patience = PAT
-                    else:
-                        patience -= 1
-
-                    pbar_epochs.set_description(
-                        f"F1 {round_sf(f1,3)} loss {round_sf(avg_loss_dev,3)} PAT {patience}"
-                    )
-
-                    if LOG:
-                        wandb.log(
-                            {
-                                "loss": avg_loss,
-                                "val loss": avg_loss_dev,
-                                "F1": f1,
-                                "acc": intent_res["accuracy"],
-                            }
-                        )
-
-                    if patience < 0:  # Early stopping with patient
-                        break
+                if patience < 0:  # Early stopping with patient
+                    break
 
             results_dev, intent_res, _, avg_loss_dev = eval_loop(
                 dev_loader, criterion_slots, criterion_intents, model, lang
@@ -544,6 +544,14 @@ def remove_outliers(slot_f1s, intent_acc):
     - clean_intent_acc_std (float): standard deviation of the intent accuracies
     """
 
+    if len(slot_f1s) <= 2:
+        return (
+            round(np.array(slot_f1s).mean(), 3),
+            round(np.array(slot_f1s).std(), 3),
+            round(np.array(intent_acc).mean(), 3),
+            round(np.array(intent_acc).std(), 3),
+        )
+
     slot_f1s = np.asarray(slot_f1s)
     intent_acc = np.asarray(intent_acc)
 
@@ -554,7 +562,7 @@ def remove_outliers(slot_f1s, intent_acc):
     clean_slot_f1s = []
     clean_intent_acc = []
     for idx, (score, acc) in enumerate(zip(slot_f1s, intent_acc)):
-        z = abs((score - slot_f1s_mean) / slot_f1s_std)
+        z = abs((score - slot_f1s_mean) / (slot_f1s_std + 0.0001))
         if z < 3:
             clean_slot_f1s.append(score)
             clean_intent_acc.append(acc)

@@ -254,35 +254,34 @@ def run_experiments(defaults, experiments, glob_args):
                 loss, avg_loss = train_loop(
                     train_loader, optimizer, criterion_slots, criterion_intents, model
                 )
-                if epoch % 1 == 0:
-                    results_dev, intent_res, loss_dev, avg_loss_dev = eval_loop(
-                        dev_loader, criterion_slots, criterion_intents, model, lang
+                results_dev, intent_res, loss_dev, avg_loss_dev = eval_loop(
+                    dev_loader, criterion_slots, criterion_intents, model, lang
+                )
+                f1 = results_dev["total"]["f"]
+
+                if f1 > best_f1:
+                    best_f1 = f1
+                    patience = PAT
+                else:
+                    if epoch > 10:  # make sure early stopping
+                        patience -= 1
+
+                pbar_epochs.set_description(
+                    f"F1 {round_sf(f1,2)} best F1 {round_sf(best_f1,2)} PAT {patience}"
+                )
+
+                if LOG:
+                    wandb.log(
+                        {
+                            "loss": avg_loss,
+                            "val loss": avg_loss_dev,
+                            "F1": f1,
+                            "acc": intent_res["accuracy"],
+                        }
                     )
-                    f1 = results_dev["total"]["f"]
 
-                    if f1 > best_f1:
-                        best_f1 = f1
-                        patience = PAT
-                    else:
-                        if epoch > 10:  # make sure early stopping
-                            patience -= 1
-
-                    pbar_epochs.set_description(
-                        f"F1 {round_sf(f1,2)} best F1 {round_sf(best_f1,2)} PAT {patience}"
-                    )
-
-                    if LOG:
-                        wandb.log(
-                            {
-                                "loss": avg_loss,
-                                "val loss": avg_loss_dev,
-                                "F1": f1,
-                                "acc": intent_res["accuracy"],
-                            }
-                        )
-
-                    if patience < 0:  # Early stopping with patient
-                        break
+                if patience < 0:  # Early stopping with patient
+                    break
 
             results_dev, intent_res, _, avg_loss_dev = eval_loop(
                 dev_loader, criterion_slots, criterion_intents, model, lang
