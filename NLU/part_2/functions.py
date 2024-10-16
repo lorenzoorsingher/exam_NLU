@@ -97,7 +97,11 @@ def train_loop_sch(
         # clip the gradient to avoid exploding gradients
         torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
         optimizer.step()  # Update the weights
-        scheduler.step()  # Update the optimizer
+
+        if type(scheduler).__name__ == "ReduceLROnPlateau":
+            scheduler.step(loss)
+        else:
+            scheduler.step()  # Update the optimizer
 
     avg_loss = np.array(loss_array).mean()
     return loss_array, avg_loss
@@ -328,7 +332,7 @@ def run_experiments(defaults, experiments, glob_args):
                 )
             best_f1 = 0
             patience = PAT
-            pbar_epochs = tqdm(range(1, EPOCHS))
+            pbar_epochs = tqdm(range(0, EPOCHS))
 
             best_model = None
             for epoch in pbar_epochs:

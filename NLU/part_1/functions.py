@@ -202,7 +202,7 @@ def run_experiments(defaults, experiments, glob_args):
 
         print("[TRAIN] Starting ", run_name)
 
-        pbar_runs = tqdm(range(1, runs))
+        pbar_runs = tqdm(range(1, runs + 1))
         for run_n in pbar_runs:
 
             model = ModelIAS(
@@ -247,7 +247,7 @@ def run_experiments(defaults, experiments, glob_args):
 
             best_f1 = 0
             patience = PAT
-            pbar_epochs = tqdm(range(1, EPOCHS))
+            pbar_epochs = tqdm(range(0, EPOCHS))
 
             best_model = None
             for epoch in pbar_epochs:
