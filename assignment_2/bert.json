@@ -2,7 +2,7 @@
   {
     "model_name": "bert-base-uncased",
     "lr": 0.0001,
-    "EPOCHS": 1,
+    "EPOCHS": 100,
     "runs": 1,
     "PAT": 5,
     "drop": 0,
