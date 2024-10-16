@@ -317,7 +317,7 @@ def run_experiments(defaults, experiments, glob_args):
                 )
             if SCH == "plateau":
                 scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-                    optimizer, "min", factor=0.5, patience=PAT // 2
+                    optimizer, "min", factor=0.1, patience=PAT // 2
                 )
 
             criterion_slots = nn.CrossEntropyLoss(ignore_index=PAD_TOKEN)
