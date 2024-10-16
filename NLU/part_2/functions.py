@@ -310,6 +310,16 @@ def run_experiments(defaults, experiments, glob_args):
             elif OPT == "AdamW":
                 optimizer = optim.AdamW(model.parameters(), lr=lr)
 
+            # breakpoint()
+            if SCH == "cosine":
+                scheduler = optim.lr_scheduler.CosineAnnealingLR(
+                    optimizer, T_max=EPOCHS
+                )
+            if SCH == "plateau":
+                scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+                    optimizer, "min", factor=0.5, patience=PAT // 2
+                )
+
             criterion_slots = nn.CrossEntropyLoss(ignore_index=PAD_TOKEN)
             criterion_intents = nn.CrossEntropyLoss()
 
@@ -346,15 +356,6 @@ def run_experiments(defaults, experiments, glob_args):
                         model,
                     )
                 else:
-                    # breakpoint()
-                    if SCH == "cosine":
-                        scheduler = optim.lr_scheduler.CosineAnnealingLR(
-                            optimizer, T_max=EPOCHS
-                        )
-                    if SCH == "plateau":
-                        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-                            optimizer, "min", factor=0.5, patience=PAT // 2
-                        )
 
                     loss, avg_loss = train_loop_sch(
                         train_loader,
@@ -369,7 +370,7 @@ def run_experiments(defaults, experiments, glob_args):
                     dev_loader, criterion_slots, criterion_intents, model, lang
                 )
                 f1 = results_dev["total"]["f"]
-
+                acc = intent_res["accuracy"]
                 if f1 > best_f1:
                     best_f1 = f1
                     patience = PAT
@@ -377,7 +378,7 @@ def run_experiments(defaults, experiments, glob_args):
                     patience -= 1
 
                 pbar_epochs.set_description(
-                    f"F1 {round_sf(f1,3)} loss {round_sf(avg_loss_dev,3)} PAT {patience}"
+                    f"F1 {round_sf(f1,3)} acc {round_sf(acc,3)} loss {round_sf(avg_loss_dev,3)} PAT {patience}"
                 )
 
                 if LOG:
@@ -386,7 +387,7 @@ def run_experiments(defaults, experiments, glob_args):
                             "loss": avg_loss,
                             "val loss": avg_loss_dev,
                             "F1": f1,
-                            "acc": intent_res["accuracy"],
+                            "acc": acc,
                         }
                     )
 
