@@ -313,11 +313,11 @@ def run_experiments(defaults, experiments, glob_args):
             # breakpoint()
             if SCH == "cosine":
                 scheduler = optim.lr_scheduler.CosineAnnealingLR(
-                    optimizer, T_max=EPOCHS
+                    optimizer, T_max=40  # EPOCHS
                 )
             if SCH == "plateau":
                 scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-                    optimizer, "min", factor=0.1, patience=PAT // 2
+                    optimizer, "min", factor=0.2, patience=3  # PAT // 2
                 )
 
             criterion_slots = nn.CrossEntropyLoss(ignore_index=PAD_TOKEN)
