@@ -1,3 +1,4 @@
+from copy import deepcopy
 import os
 import argparse
 import json
@@ -352,21 +353,21 @@ def run_experiments(defaults, experiments, glob_args):
                 pooler,
             ).to(DEVICE)
 
-            trainable_params = []
-            for name, param in model.named_parameters():
-                # if "pooler" in name:
-                #     param.requires_grad = args["custom_pooler"]
+            # trainable_params = []
+            # for name, param in model.named_parameters():
+            #     # if "pooler" in name:
+            #     #     param.requires_grad = args["custom_pooler"]
 
-                if "attention" in name:
-                    print(name, param.requires_grad)
-                    trainable_params.append(param)
+            #     if "attention" in name:
+            #         print(name, param.requires_grad)
+            #         trainable_params.append(param)
 
             # breakpoint()
 
             if OPT == "Adam":
-                optimizer = optim.Adam(trainable_params, lr=lr)
+                optimizer = optim.Adam(model.parameters(), lr=lr)
             elif OPT == "AdamW":
-                optimizer = optim.AdamW(trainable_params, lr=lr)
+                optimizer = optim.AdamW(model.parameters(), lr=lr)
 
             if not sch_in:
                 if SCH == "cosine":
@@ -383,7 +384,7 @@ def run_experiments(defaults, experiments, glob_args):
 
             if LOG:
                 wandb.init(
-                    project="NLU_part_two",
+                    project="NLU_assignment2",
                     name=run_name + "_" + str(run_n),
                     config={
                         "model": str(type(model).__name__),
@@ -452,6 +453,7 @@ def run_experiments(defaults, experiments, glob_args):
                 if f1 > best_f1:
                     best_f1 = f1
                     patience = PAT
+                    best_model = deepcopy(model)
                 else:
                     patience -= 1
 
@@ -472,6 +474,7 @@ def run_experiments(defaults, experiments, glob_args):
                 if patience < 0:  # Early stopping with patient
                     break
 
+            model.load_state_dict(best_model.state_dict())
             results_dev, intent_res, _, avg_loss_dev = eval_loop(
                 dev_loader, criterion_slots, criterion_intents, model, lang
             )
