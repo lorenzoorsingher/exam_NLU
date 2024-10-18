@@ -1,0 +1,35 @@
+[
+  {
+    "model_name": "bert-base-uncased",
+    "lr": 0.0001,
+    "EPOCHS": 100,
+    "runs": 4,
+    "PAT": 5,
+    "drop": 0,
+    "pooler": false,
+    "SCH": "none",
+    "sch_in": false,
+    "custom_pooler": false,
+    "OPT": "AdamW",
+    "tag": "bert_freeze"
+  },
+
+  [
+    {
+      "SCH": "none"
+    },
+    {
+      "PAT": 7,
+      "SCH": "plateau"
+    },
+    {
+      "SCH": "cosine"
+    },
+    {
+      "drop": 0.25
+    },
+    {
+      "drop": 0.5
+    }
+  ]
+]

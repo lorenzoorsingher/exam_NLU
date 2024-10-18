@@ -352,12 +352,21 @@ def run_experiments(defaults, experiments, glob_args):
                 pooler,
             ).to(DEVICE)
 
-            # model.apply(init_weights)
+            trainable_params = []
+            for name, param in model.named_parameters():
+                # if "pooler" in name:
+                #     param.requires_grad = args["custom_pooler"]
+
+                if "attention" in name:
+                    print(name, param.requires_grad)
+                    trainable_params.append(param)
+
+            # breakpoint()
 
             if OPT == "Adam":
-                optimizer = optim.Adam(model.parameters(), lr=lr)
+                optimizer = optim.Adam(trainable_params, lr=lr)
             elif OPT == "AdamW":
-                optimizer = optim.AdamW(model.parameters(), lr=lr)
+                optimizer = optim.AdamW(trainable_params, lr=lr)
 
             if not sch_in:
                 if SCH == "cosine":
