@@ -2,6 +2,7 @@ from copy import deepcopy
 import os
 import argparse
 import json
+from pathlib import Path
 import torch
 import wandb
 import random
@@ -285,10 +286,15 @@ def run_experiments(defaults, experiments, glob_args):
                 if patience < 0:  # Early stopping with patient
                     break
 
+            # load the best model
             model.load_state_dict(best_model.state_dict())
+
+            # run the evaluation on the val set
             results_dev, intent_res, _, avg_loss_dev = eval_loop(
                 dev_loader, criterion_slots, criterion_intents, model, lang
             )
+
+            # run the evaluation on the test set
             results_test, intent_test, _, avg_loss_test = eval_loop(
                 test_loader, criterion_slots, criterion_intents, model, lang
             )
@@ -328,13 +334,118 @@ def run_experiments(defaults, experiments, glob_args):
 
                 wandb.finish()
 
-            torch.save(model.state_dict(), run_path + "best.pt")
+            model_savefile = {
+                "state_dict": model.state_dict(),
+                "lang": lang,
+            }
+
+            torch.save(model_savefile, run_path + "best.pt")
 
         slot_f1s = np.asarray(slot_f1s)
         intent_acc = np.asarray(intent_acc)
 
         print("Slot F1", round(slot_f1s.mean(), 3), "+-", round(slot_f1s.std(), 3))
         print("Intent Acc", round(intent_acc.mean(), 3), "+-", round(slot_f1s.std(), 3))
+
+
+def run_tests(defaults, experiments, glob_args):
+    """
+    Function to run the tests
+
+    Parameters:
+    - defaults (dict): default parameters
+    - experiments (list): list of experiments
+    - glob_args (dict): global arguments
+    """
+
+    SAVE_PATH = glob_args["save_path"]
+    DEVICE = "cuda:0"  # it can be changed with 'cpu' if you do not have a gpu
+    DATASET_PATH = "NLU/part_1/dataset"
+    PAD_TOKEN = 0
+
+    results = []
+
+    for exp in experiments:
+
+        # prepare experiment params
+        args = defaults | exp
+
+        print(args)
+
+        emb_size = args["emb_size"]
+        hid_size = args["hid_size"]
+        drop = args["drop"]
+        var_drop = args["var_drop"]
+        bi = args["bi"]
+
+        run_name, run_path = build_run_name(args, SAVE_PATH)
+
+        run_name = run_name[:-5]
+        print("[TEST] Loading model ", run_name)
+
+        paths = sorted(Path(SAVE_PATH).iterdir(), key=os.path.getmtime)
+
+        paths_list = [path.stem for path in paths]
+
+        weights_path = ""
+        for path in paths_list[::-1]:
+            if run_name == path[:-5]:
+                # weights_path = SAVE_PATH + path + "/best.pt"
+                if os.path.isfile(SAVE_PATH + path + "/best.pt"):
+                    weights_path = SAVE_PATH + path + "/best.pt"
+                    print("[TEST] Loading ", weights_path)
+                break
+
+        if weights_path == "":
+            print("[TEST] Model not found ", run_name)
+            continue
+
+        # Load the model and lang
+        model_savefile = torch.load(weights_path, weights_only=False)
+        state_dict = model_savefile["state_dict"]
+        lang = model_savefile["lang"]
+
+        _, _, test_loader, _ = get_dataloaders(
+            DATASET_PATH, PAD_TOKEN, DEVICE, lang=lang
+        )
+
+        out_slot = len(lang.slot2id)
+        out_int = len(lang.intent2id)
+        vocab_len = len(lang.word2id)
+        model = ModelIAS(
+            hid_size,
+            out_slot,
+            out_int,
+            emb_size,
+            vocab_len,
+            pad_index=PAD_TOKEN,
+            var_drop=var_drop,
+            dropout=drop,
+            bi=bi,
+        ).to(DEVICE)
+
+        # load the weights
+        model.load_state_dict(state_dict)
+        model.to(DEVICE)
+
+        criterion_slots = nn.CrossEntropyLoss(ignore_index=PAD_TOKEN)
+        criterion_intents = nn.CrossEntropyLoss()
+
+        results_test, intent_test, _, avg_loss_test = eval_loop(
+            test_loader, criterion_slots, criterion_intents, model, lang
+        )
+
+        results.append(
+            {
+                "args": args,
+                "f1": results_test["total"]["f"],
+                "acc": intent_test["accuracy"],
+                "name": run_name,
+            }
+        )
+
+    for res in results:
+        print(f"F1: {res['f1']} \t ACC: {res['acc']} - {res['name']}")
 
 
 ############################################################################################################

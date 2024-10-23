@@ -127,7 +127,7 @@ def collate_fn(data, pad_token, device):
     return new_item
 
 
-def get_dataloaders(data_path, pad_token, device, portion=0.10):
+def get_dataloaders(data_path, pad_token, device, lang=None, portion=0.10):
     tmp_train_raw = load_data(os.path.join(data_path, "ATIS", "train.json"))
     test_raw = load_data(os.path.join(data_path, "ATIS", "test.json"))
     print("Train samples:", len(tmp_train_raw))
@@ -160,16 +160,17 @@ def get_dataloaders(data_path, pad_token, device, portion=0.10):
     train_raw = X_train
     dev_raw = X_dev
 
-    words = sum(
-        [x["utterance"].split() for x in train_raw], []
-    )  # No set() since we want to compute
-    # the cutoff
-    corpus = train_raw + dev_raw + test_raw  # We do not wat unk labels,
-    # however this depends on the research purpose
-    slots = set(sum([line["slots"].split() for line in corpus], []))
-    intents = set([line["intent"] for line in corpus])
+    if lang is None:
+        words = sum(
+            [x["utterance"].split() for x in train_raw], []
+        )  # No set() since we want to compute
+        # the cutoff
+        corpus = train_raw + dev_raw + test_raw  # We do not wat unk labels,
+        # however this depends on the research purpose
+        slots = set(sum([line["slots"].split() for line in corpus], []))
+        intents = set([line["intent"] for line in corpus])
 
-    lang = Lang(words, intents, slots, pad_token, cutoff=0)
+        lang = Lang(words, intents, slots, pad_token, cutoff=0)
 
     # Create our datasets
     train_dataset = IntentsAndSlots(train_raw, lang)

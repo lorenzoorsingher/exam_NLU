@@ -1,0 +1,23 @@
+[
+  {
+    "emb_size": 300,
+    "hid_size": 300,
+    "lr": 0.001,
+    "EPOCHS": 350,
+    "runs": 1,
+    "PAT": 5,
+    "var_drop": false,
+    "drop": 0,
+    "OPT": "AdamW",
+    "tag": "NLU1",
+    "bi": false
+  },
+
+  [
+    {
+      "lr": 0.001,
+      "drop": 0,
+      "bi": false
+    }
+  ]
+]
