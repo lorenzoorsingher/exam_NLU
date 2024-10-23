@@ -14,6 +14,7 @@ from model import ModelIAS
 from tqdm import tqdm
 from conll import evaluate
 from sklearn.metrics import classification_report
+from tabulate import tabulate
 
 from utils import get_dataloaders
 
@@ -370,8 +371,6 @@ def run_tests(defaults, experiments, glob_args):
         # prepare experiment params
         args = defaults | exp
 
-        print(args)
-
         emb_size = args["emb_size"]
         hid_size = args["hid_size"]
         drop = args["drop"]
@@ -379,14 +378,12 @@ def run_tests(defaults, experiments, glob_args):
         bi = args["bi"]
 
         run_name, run_path = build_run_name(args, SAVE_PATH)
-
         run_name = run_name[:-5]
+
+        # retrieving model weights
         print("[TEST] Loading model ", run_name)
-
         paths = sorted(Path(SAVE_PATH).iterdir(), key=os.path.getmtime)
-
         paths_list = [path.stem for path in paths]
-
         weights_path = ""
         for path in paths_list[::-1]:
             if run_name == path[:-5]:
@@ -400,7 +397,7 @@ def run_tests(defaults, experiments, glob_args):
             print("[TEST] Model not found ", run_name)
             continue
 
-        # Load the model and lang
+        # load the model, lang and test set
         model_savefile = torch.load(weights_path, weights_only=False)
         state_dict = model_savefile["state_dict"]
         lang = model_savefile["lang"]
@@ -444,8 +441,28 @@ def run_tests(defaults, experiments, glob_args):
             }
         )
 
+    # print the results in a table
+    headers = ["Name", "LR", "Drop", "VD", "Bi", "F1", "Acc"]
+    data = []
     for res in results:
-        print(f"F1: {res['f1']} \t ACC: {res['acc']} - {res['name']}")
+        args = res["args"]
+        f1 = res["f1"]
+        acc = res["acc"]
+        vd = "x" if args["var_drop"] else ""
+        bi = "x" if args["bi"] else ""
+        data.append(
+            [
+                res["name"],
+                args["lr"],
+                args["drop"],
+                vd,
+                bi,
+                round(f1, 3),
+                round(acc, 3),
+            ]
+        )
+
+    print(tabulate(data, headers=headers, tablefmt="orgtbl"))
 
 
 ############################################################################################################
