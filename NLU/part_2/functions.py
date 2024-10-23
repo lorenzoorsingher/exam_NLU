@@ -2,6 +2,8 @@ from copy import deepcopy
 import os
 import argparse
 import json
+from pathlib import Path
+from tabulate import tabulate
 import torch
 import wandb
 import random
@@ -516,13 +518,127 @@ def run_experiments(defaults, experiments, glob_args):
 
                 wandb.finish()
 
-            torch.save(model.state_dict(), run_path + "best.pt")
+            model_savefile = {
+                "state_dict": model.state_dict(),
+                "lang": lang,
+            }
+            torch.save(model_savefile, run_path + "best.pt")
 
         slot_f1s = np.asarray(slot_f1s)
         intent_acc = np.asarray(intent_acc)
 
         print("Slot F1", round(slot_f1s.mean(), 3), "+-", round(slot_f1s.std(), 3))
         print("Intent Acc", round(intent_acc.mean(), 3), "+-", round(slot_f1s.std(), 3))
+
+
+def run_tests(defaults, experiments, glob_args):
+    """
+    Function to run the tests
+
+    Parameters:
+    - defaults (dict): default parameters
+    - experiments (list): list of experiments
+    - glob_args (dict): global arguments
+    """
+
+    SAVE_PATH = glob_args["save_path"]
+    DEVICE = "cuda:0"  # it can be changed with 'cpu' if you do not have a gpu
+    DATASET_PATH = "NLU/part_2/dataset"
+    PAD_TOKEN = 0
+
+    results = []
+
+    for exp in experiments:
+
+        # prepare experiment params
+        args = defaults | exp
+
+        drop = args["drop"]
+        model_name = args["model_name"]
+        pooler = args["pooler"]
+
+        run_name, run_path = build_run_name(args, SAVE_PATH)
+        run_name = run_name[:-5]
+
+        # retrieving model weights
+        print("[TEST] Loading model ", run_name)
+        paths = sorted(Path(SAVE_PATH).iterdir(), key=os.path.getmtime)
+        paths_list = [path.stem for path in paths]
+        weights_path = ""
+        for path in paths_list[::-1]:
+            if run_name == path[:-5]:
+                # weights_path = SAVE_PATH + path + "/best.pt"
+                if os.path.isfile(SAVE_PATH + path + "/best.pt"):
+                    weights_path = SAVE_PATH + path + "/best.pt"
+                    print("[TEST] Loading ", weights_path)
+                break
+
+        if weights_path == "":
+            print("[TEST] Model not found ", run_name)
+            continue
+
+        # load the model, lang and test set
+        model_savefile = torch.load(weights_path, weights_only=False)
+        state_dict = model_savefile["state_dict"]
+        lang = model_savefile["lang"]
+
+        _, _, test_loader, _ = get_dataloaders(
+            DATASET_PATH, PAD_TOKEN, DEVICE, lang=lang
+        )
+
+        out_slot = len(lang.slot2id)
+        out_int = len(lang.intent2id)
+
+        model = MyBert(
+            out_slot,
+            out_int,
+            drop,
+            model_name,
+            pooler,
+        ).to(DEVICE)
+
+        # load the weights
+        model.load_state_dict(state_dict)
+        model.to(DEVICE)
+
+        criterion_slots = nn.CrossEntropyLoss(ignore_index=PAD_TOKEN)
+        criterion_intents = nn.CrossEntropyLoss()
+
+        results_test, intent_test, _, avg_loss_test = eval_loop(
+            test_loader, criterion_slots, criterion_intents, model, lang
+        )
+
+        results.append(
+            {
+                "args": args,
+                "f1": results_test["total"]["f"],
+                "acc": intent_test["accuracy"],
+                "name": run_name,
+            }
+        )
+
+    print(args)
+    # print the results in a table
+    headers = ["Name", "Model", "LR", "Drop", "Scheduler", "F1", "Acc"]
+    data = []
+    for res in results:
+        args = res["args"]
+        f1 = res["f1"]
+        acc = res["acc"]
+
+        data.append(
+            [
+                res["name"],
+                args["model_name"],
+                args["lr"],
+                args["drop"],
+                args["SCH"],
+                round(f1, 3),
+                round(acc, 3),
+            ]
+        )
+
+    print(tabulate(data, headers=headers, tablefmt="orgtbl"))
 
 
 ############################################################################################################

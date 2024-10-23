@@ -2,7 +2,7 @@ import os
 import wandb
 from dotenv import load_dotenv
 
-from functions import get_args, load_experiments, run_experiments
+from functions import get_args, load_experiments, run_experiments, run_tests
 
 
 if __name__ == "__main__":
@@ -34,5 +34,5 @@ if __name__ == "__main__":
         run_experiments(defaults, experiments, glob_args)
 
     if TEST:
-        # run_tests(defaults, experiments, glob_args)
+        run_tests(defaults, experiments, glob_args)
         pass
