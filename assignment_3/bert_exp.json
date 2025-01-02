@@ -11,7 +11,15 @@
   },
 
   [
+    {},
     {
+      "drop": 0.5
+    },
+    {
+      "sch": "plateau"
+    },
+    {
+      "sch": "plateau",
       "drop": 0.5
     }
   ]

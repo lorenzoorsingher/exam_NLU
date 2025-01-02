@@ -167,6 +167,7 @@ def collate_fn(data, pad_token, slot_pad, device):
 
 
 def get_dataloaders(data_path, pad_token, device, lang=None, portion=0.10):
+
     tmp_train_raw = load_data(os.path.join(data_path, "laptop14_train.txt"))
     test_raw = load_data(os.path.join(data_path, "laptop14_test.txt"))
     print("Train samples:", len(tmp_train_raw))
@@ -213,6 +214,7 @@ def get_dataloaders(data_path, pad_token, device, lang=None, portion=0.10):
             device=device,
         ),
         shuffle=True,
+        # num_workers=8,
     )
     dev_loader = DataLoader(
         dev_dataset,

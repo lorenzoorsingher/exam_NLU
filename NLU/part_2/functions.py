@@ -44,6 +44,7 @@ def train_loop(data, optimizer, criterion_slots, criterion_intents, model, clip=
 
         # breakpoint()
         optimizer.zero_grad()  # Zeroing the gradient
+        # breakpoint()q
         intent, slots = model(utt_x, att)
 
         loss_intent = criterion_intents(intent, intent_y)
@@ -274,6 +275,7 @@ def eval_loop(data, criterion_slots, criterion_intents, model, lang):
             #     print(f"REF: {a}\t HYP: {b}")
 
     try:
+        breakpoint()
         results = evaluate(ref_slots, hyp_slots)
     except Exception as ex:
         # Sometimes the model predicts a class that is not in REF
@@ -417,7 +419,9 @@ def run_experiments(defaults, experiments, glob_args):
                         scheduler = optim.lr_scheduler.ReduceLROnPlateau(
                             optimizer, "min", factor=0.2, patience=5
                         )
-
+                results_dev, intent_res, loss_dev, avg_loss_dev = eval_loop(
+                    dev_loader, criterion_slots, criterion_intents, model, lang
+                )
                 if SCH == "none":
                     loss, avg_loss = train_loop(
                         train_loader,

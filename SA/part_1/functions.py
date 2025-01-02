@@ -228,7 +228,7 @@ def train_loop(data, optimizer, criterion_slots, model, lang, clip=5):
     lang
     model.train()
     loss_array = []
-    for sample in data:
+    for sample in tqdm(data):
 
         utt_x = sample["utt"]
         slots_y = sample["slots"]
@@ -296,7 +296,7 @@ def run_experiments(defaults, experiments, glob_args):
     LOG = not glob_args["no_log"]
     SAVE_PATH = glob_args["save_path"]
     DEVICE = "cuda:0"  # it can be changed with 'cpu' if you do not have a gpu
-    DATASET_PATH = "part_1/data/"
+    DATASET_PATH = "SA/part_1/data"
     PAD_TOKEN = 0
 
     train_loader, dev_loader, test_loader, lang = get_dataloaders(
@@ -361,15 +361,16 @@ def run_experiments(defaults, experiments, glob_args):
                     config=args,
                 )
             best_f1 = 0
+            best_res = None
             patience = PAT
             pbar_epochs = tqdm(range(0, EPOCHS))
 
             best_model = None
             for epoch in pbar_epochs:
 
-                results, _, loss_avg = eval_loop(
-                    test_loader, criterion_slots, model, lang
-                )
+                # results, _, loss_avg = eval_loop(
+                #     test_loader, criterion_slots, model, lang
+                # )
                 loss, avg_loss = train_loop(
                     train_loader, optimizer, criterion_slots, model, lang
                 )
@@ -379,34 +380,39 @@ def run_experiments(defaults, experiments, glob_args):
                 else:
                     scheduler.step()
                     # Update the optimizer
-                print("Epoch", epoch, "Loss", avg_loss)
+                print("Epoch", epoch, "Loss", round(avg_loss, 3))
 
                 results, _, loss_avg = eval_loop(
                     test_loader, criterion_slots, model, lang
                 )
                 macro_f1, micro_p, micro_r, micro_f1 = results
 
-                macro_f1 = 1
                 if macro_f1 > best_f1:
                     best_f1 = macro_f1
+                    best_res = results
                     patience = PAT
                     best_model = deepcopy(model)
                 else:
                     patience -= 1
 
-                pbar_epochs.set_description(
-                    f"F1 {round_sf(macro_f1,3)} prec {round_sf(micro_p,3)} rec {round_sf(micro_r,3)} loss {round_sf(loss_avg,3)} PAT {patience}"
+                # pbar_epochs.set_description(
+                #     f"F1 {round_sf(macro_f1,3)} prec {round_sf(micro_p,3)} rec {round_sf(micro_r,3)} loss {round_sf(loss_avg,3)} PAT {patience}"
+                # )
+
+                print(
+                    f"F1 {round_sf(macro_f1,3)} prec {round_sf(micro_p,3)} rec {round_sf(micro_r,3)} loss {round_sf(loss_avg,3)} PAT {patience}\n"
                 )
 
-                # if LOG:
-                #     wandb.log(
-                #         {
-                #             "loss": avg_loss,
-                #             "val loss": avg_loss_dev,
-                #             "F1": f1,
-                #             "acc": acc,
-                #         }
-                #     )
+                if LOG:
+                    wandb.log(
+                        {
+                            "loss": avg_loss,
+                            "macro_f1": macro_f1,
+                            "micro_p": micro_p,
+                            "micro_r": micro_r,
+                            "micro_f1": micro_f1,
+                        }
+                    )
 
                 if patience < 0:  # Early stopping with patient
                     break
@@ -420,50 +426,57 @@ def run_experiments(defaults, experiments, glob_args):
             # )
             # intent_acc.append(intent_test["accuracy"])
             # slot_f1s.append(results_test["total"]["f"])
-            if LOG:
 
-                # loss_gap = (avg_loss_test - avg_loss_dev) / avg_loss_test
+            macro_f1, micro_p, micro_r, micro_f1 = best_res
+            print("BEST RESULTS:")
+            print(
+                f"F1 {round_sf(macro_f1,3)} prec {round_sf(micro_p,3)} rec {round_sf(micro_r,3)} loss {round_sf(loss_avg,3)}"
+            )
 
-                # wandb.log(
-                #     {
-                #         "val loss": avg_loss_dev,
-                #         "F1": results_dev["total"]["f"],
-                #         "acc": intent_res["accuracy"],
-                #         "test F1": results_test["total"]["f"],
-                #         "test acc": intent_test["accuracy"],
-                #         "loss_gap": loss_gap,
-                #     }
-                # )
+            # if LOG:
 
-                # # on last run log the mean and std of the results
-                # if run_n == runs:
+            # loss_gap = (avg_loss_test - avg_loss_dev) / avg_loss_test
 
-                #     slot_f1s_mean, slot_f1s_std, intent_acc_mean, intent_acc_std = (
-                #         remove_outliers(slot_f1s, intent_acc)
-                #     )
+            # wandb.log(
+            #     {
+            #         "val loss": avg_loss_dev,
+            #         "F1": results_dev["total"]["f"],
+            #         "acc": intent_res["accuracy"],
+            #         "test F1": results_test["total"]["f"],
+            #         "test acc": intent_test["accuracy"],
+            #         "loss_gap": loss_gap,
+            #     }
+            # )
 
-                #     wandb.log(
-                #         {
-                #             "slot_f1s_mean": slot_f1s_mean,
-                #             "slot_f1s_std": slot_f1s_std,
-                #             "intent_acc_mean": intent_acc_mean,
-                #             "intent_acc_std": intent_acc_std,
-                #         }
-                #     )
+            # # on last run log the mean and std of the results
+            # if run_n == runs:
 
-                wandb.finish()
+            #     slot_f1s_mean, slot_f1s_std, intent_acc_mean, intent_acc_std = (
+            #         remove_outliers(slot_f1s, intent_acc)
+            #     )
 
-            model_savefile = {
-                "state_dict": model.state_dict(),
-                "lang": lang,
-            }
-            torch.save(model_savefile, run_path + "best.pt")
+            #     wandb.log(
+            #         {
+            #             "slot_f1s_mean": slot_f1s_mean,
+            #             "slot_f1s_std": slot_f1s_std,
+            #             "intent_acc_mean": intent_acc_mean,
+            #             "intent_acc_std": intent_acc_std,
+            #         }
+            #     )
 
-        slot_f1s = np.asarray(slot_f1s)
-        intent_acc = np.asarray(intent_acc)
+            wandb.finish()
 
-        print("Slot F1", round(slot_f1s.mean(), 3), "+-", round(slot_f1s.std(), 3))
-        print("Intent Acc", round(intent_acc.mean(), 3), "+-", round(slot_f1s.std(), 3))
+        #     model_savefile = {
+        #         "state_dict": model.state_dict(),
+        #         "lang": lang,
+        #     }
+        #     torch.save(model_savefile, run_path + "best.pt")
+
+        # slot_f1s = np.asarray(slot_f1s)
+        # intent_acc = np.asarray(intent_acc)
+
+        # print("Slot F1", round(slot_f1s.mean(), 3), "+-", round(slot_f1s.std(), 3))
+        # print("Intent Acc", round(intent_acc.mean(), 3), "+-", round(slot_f1s.std(), 3))
 
 
 def run_tests(defaults, experiments, glob_args):
@@ -656,6 +669,7 @@ def load_experiments(json_path):
         defaults, experiments = json.load(open(json_path))
     else:
         print("json not found, exiting...")
+        breakpoint()
         exit()
     return defaults, experiments
 
@@ -716,7 +730,7 @@ def get_args():
         "--save-path",
         type=str,
         help="Set checkpoint save path",
-        default="part_1/bin/",
+        default="SA/part_1/bin/",
         metavar="",
     )
 
