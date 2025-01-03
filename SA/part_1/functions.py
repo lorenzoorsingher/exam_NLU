@@ -139,6 +139,7 @@ def evaluate_ts(gold_ts, pred_ts):
         2 * ts_micro_p * ts_micro_r / (ts_micro_p + ts_micro_r + SMALL_POSITIVE_CONST)
     )
     ts_scores = (ts_macro_f1, ts_micro_p, ts_micro_r, ts_micro_f1)
+
     return ts_scores
 
 
@@ -206,10 +207,10 @@ def eval_loop(data, criterion_slots, model, lang):
         hyp_s = set([x[1] for x in hyp_slots])
         # print(hyp_s.difference(ref_s))
         results = 0, 0, 0, 0
-    # # breakpoint()
     # report_intent = classification_report(
     #     ref_intents, hyp_intents, zero_division=False, output_dict=True
     # )
+
     loss_avg = np.array(loss_array).mean()
     return results, loss_array, loss_avg
 
@@ -276,7 +277,6 @@ def slot_inference(out_slot, gt_ids, sentence, length, lang):
     for pred_id, gt_id in zip(out_slot, gt_ids):
         if gt_id != lang.pad_token:
             word = sentence[slot_idx]
-            # breakpoint()
             hyp_slot.append(lang.id2slot[pred_id.item()])
             ref_slot.append(lang.id2slot[gt_id])
             slot_idx += 1
@@ -347,7 +347,7 @@ def run_experiments(defaults, experiments, glob_args):
                 )
             elif SCH == "plateau":
                 scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-                    optimizer, "min", factor=0.2, patience=PAT // 2
+                    optimizer, "max", factor=0.2, patience=PAT // 2
                 )
             else:
                 scheduler = MockScheduler()
@@ -375,11 +375,7 @@ def run_experiments(defaults, experiments, glob_args):
                     train_loader, optimizer, criterion_slots, model, lang
                 )
 
-                if SCH == "plateau":
-                    scheduler.step(avg_loss)
-                else:
-                    scheduler.step()
-                    # Update the optimizer
+                # Update the optimizer
                 print("Epoch", epoch, "Loss", round(avg_loss, 3))
 
                 results, _, loss_avg = eval_loop(
@@ -395,6 +391,10 @@ def run_experiments(defaults, experiments, glob_args):
                 else:
                     patience -= 1
 
+                if SCH == "plateau":
+                    scheduler.step(macro_f1)
+                else:
+                    scheduler.step()
                 # pbar_epochs.set_description(
                 #     f"F1 {round_sf(macro_f1,3)} prec {round_sf(micro_p,3)} rec {round_sf(micro_r,3)} loss {round_sf(loss_avg,3)} PAT {patience}"
                 # )
@@ -669,7 +669,6 @@ def load_experiments(json_path):
         defaults, experiments = json.load(open(json_path))
     else:
         print("json not found, exiting...")
-        breakpoint()
         exit()
     return defaults, experiments
 

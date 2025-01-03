@@ -32,6 +32,7 @@ class BERTSet(data.Dataset):
 
         self.unk = unk
         self.lang = lang
+        # TODO: model name should be a parameter
         self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
         self.PAD_TOKEN_ID = self.tokenizer.pad_token_id
         self.SLOT_PAD = 0
@@ -49,7 +50,6 @@ class BERTSet(data.Dataset):
     def __getitem__(self, idx):
         # idx = 574
         sentence = self.utterances[idx]
-        slots = self.slot_ids[idx]
         slots = self.slot_ids[idx]
 
         words = sentence.split()
@@ -87,9 +87,13 @@ class BERTSet(data.Dataset):
         slots_align = [self.SLOT_PAD] + slots_align + [self.SLOT_PAD]
         gt_slots = [self.lang.id2slot[elem] for elem in slots_align]
         slots_align = torch.LongTensor(slots_align)
-
         # for tkn, wid, slot in zip(tokens, word_ids, gt_slots):
         #     print(f"{tkn} \t{wid} \t{slot}")
+        # print("\n\n")
+        # for tkn, wid, slot in zip(tokens, word_ids, gt_slots):
+        #     print(f"{wid} \t{slot} \t{tkn} \t")
+
+        # breakpoint()
         # breakpoint()
         sample = {
             "utt": utt,
@@ -267,5 +271,21 @@ def load_data(path):
             utterance.append(word)
             slot.append(label)
         x.append({"utterance": " ".join(utterance), "slots": " ".join(slot)})
+
+    #     for i, (u, s) in enumerate(zip(utterance, slot)):
+    #         print(f"{s} \t{u}")
+    #     breakpoint()
+
+    # for el in x:
+    #     utt = el["utterance"]
+    #     slots = el["slots"]
+
+    #     for i, (u, s) in enumerate(zip(utt.split(), slots.split())):
+
+    #         print(f"{s} \t{u}")
+
+    #     print("-------------------------\n")
+
+    # breakpoint()
 
     return x
