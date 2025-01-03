@@ -38,8 +38,8 @@ def match_ts(gold_ts_sequence, pred_ts_sequence):
     :return:
     """
     # positive, negative and neutral
-    tag2tagid = {"POS": 0, "NEG": 1, "NEU": 2}
-    hit_count, gold_count, pred_count = np.zeros(3), np.zeros(3), np.zeros(3)
+    tag2tagid = {"T": 0}
+    hit_count, gold_count, pred_count = np.zeros(1), np.zeros(1), np.zeros(1)
     for t in gold_ts_sequence:
         # print(t)
         ts_tag = t[2]
@@ -67,11 +67,11 @@ def tag2ts(ts_tag_sequence):
 
     for i in range(n_tags):
         ts_tag = ts_tag_sequence[i]
-        if ts_tag.startswith("T-"):
+        if ts_tag == "T":
             if beg == -1:
                 beg = i
             end = i
-            sentiment = ts_tag.split("-")[1]
+            sentiment = "T"
         else:
             if beg != -1 and end != -1:
                 ts_sequence.append((beg, end, sentiment))
@@ -94,51 +94,50 @@ def evaluate_ts(gold_ts, pred_ts):
     assert len(gold_ts) == len(pred_ts)
     n_samples = len(gold_ts)
     # number of true postive, gold standard, predicted targeted sentiment
-    n_tp_ts, n_gold_ts, n_pred_ts = np.zeros(3), np.zeros(3), np.zeros(3)
-    ts_precision, ts_recall, ts_f1 = np.zeros(3), np.zeros(3), np.zeros(3)
+    n_tp_ts, n_gold_ts, n_pred_ts = 0, 0, 0
+    ts_precision, ts_recall, ts_f1 = 0, 0, 0
 
     for i in range(n_samples):
         g_ts = gold_ts[i]
         p_ts = pred_ts[i]
+        # breakpoint()
         g_ts_sequence, p_ts_sequence = tag2ts(ts_tag_sequence=g_ts), tag2ts(
             ts_tag_sequence=p_ts
         )
+        # breakpoint()
         hit_ts_count, gold_ts_count, pred_ts_count = match_ts(
             gold_ts_sequence=g_ts_sequence, pred_ts_sequence=p_ts_sequence
         )
+        n_tp_ts += hit_ts_count[0]
+        n_gold_ts += gold_ts_count[0]
+        n_pred_ts += pred_ts_count[0]
+    # breakpoint()
+    # calculate macro-average scores for ts task
+    # for i in range(3):
+    #     n_ts = n_tp_ts[i]
+    #     n_g_ts = n_gold_ts[i]
+    #     n_p_ts = n_pred_ts[i]
+    #     ts_precision[i] = float(n_ts) / float(n_p_ts + SMALL_POSITIVE_CONST)
+    #     ts_recall[i] = float(n_ts) / float(n_g_ts + SMALL_POSITIVE_CONST)
+    #     ts_f1[i] = (
+    #         2
+    #         * ts_precision[i]
+    #         * ts_recall[i]
+    #         / (ts_precision[i] + ts_recall[i] + SMALL_POSITIVE_CONST)
+    #     )
 
-        n_tp_ts += hit_ts_count
-        n_gold_ts += gold_ts_count
-        n_pred_ts += pred_ts_count
-        # calculate macro-average scores for ts task
-    for i in range(3):
-        n_ts = n_tp_ts[i]
-        n_g_ts = n_gold_ts[i]
-        n_p_ts = n_pred_ts[i]
-        ts_precision[i] = float(n_ts) / float(n_p_ts + SMALL_POSITIVE_CONST)
-        ts_recall[i] = float(n_ts) / float(n_g_ts + SMALL_POSITIVE_CONST)
-        ts_f1[i] = (
-            2
-            * ts_precision[i]
-            * ts_recall[i]
-            / (ts_precision[i] + ts_recall[i] + SMALL_POSITIVE_CONST)
-        )
-
-    ts_macro_f1 = ts_f1.mean()
+    # ts_macro_f1 = ts_f1.mean()
 
     # calculate micro-average scores for ts task
-    n_tp_total = sum(n_tp_ts)
     # total sum of TP and FN
-    n_g_total = sum(n_gold_ts)
     # total sum of TP and FP
-    n_p_total = sum(n_pred_ts)
 
-    ts_micro_p = float(n_tp_total) / (n_p_total + SMALL_POSITIVE_CONST)
-    ts_micro_r = float(n_tp_total) / (n_g_total + SMALL_POSITIVE_CONST)
+    ts_micro_p = float(n_tp_ts) / (n_pred_ts + SMALL_POSITIVE_CONST)
+    ts_micro_r = float(n_tp_ts) / (n_gold_ts + SMALL_POSITIVE_CONST)
     ts_micro_f1 = (
         2 * ts_micro_p * ts_micro_r / (ts_micro_p + ts_micro_r + SMALL_POSITIVE_CONST)
     )
-    ts_scores = (ts_macro_f1, ts_micro_p, ts_micro_r, ts_micro_f1)
+    ts_scores = (0, ts_micro_p, ts_micro_r, ts_micro_f1)
 
     return ts_scores
 
@@ -381,10 +380,10 @@ def run_experiments(defaults, experiments, glob_args):
                 results, _, loss_avg = eval_loop(
                     test_loader, criterion_slots, model, lang
                 )
-                macro_f1, micro_p, micro_r, micro_f1 = results
+                _, micro_p, micro_r, micro_f1 = results
 
-                if macro_f1 > best_f1:
-                    best_f1 = macro_f1
+                if micro_f1 > best_f1:
+                    best_f1 = micro_f1
                     best_res = results
                     patience = PAT
                     best_model = deepcopy(model)
@@ -392,7 +391,7 @@ def run_experiments(defaults, experiments, glob_args):
                     patience -= 1
 
                 if SCH == "plateau":
-                    scheduler.step(macro_f1)
+                    scheduler.step(micro_f1)
                 else:
                     scheduler.step()
                 # pbar_epochs.set_description(
@@ -400,14 +399,13 @@ def run_experiments(defaults, experiments, glob_args):
                 # )
 
                 print(
-                    f"F1 {round_sf(macro_f1,3)} prec {round_sf(micro_p,3)} rec {round_sf(micro_r,3)} loss {round_sf(loss_avg,3)} PAT {patience}\n"
+                    f"F1 {round_sf(micro_f1,3)} prec {round_sf(micro_p,3)} rec {round_sf(micro_r,3)} loss {round_sf(loss_avg,3)} PAT {patience}\n"
                 )
 
                 if LOG:
                     wandb.log(
                         {
                             "loss": avg_loss,
-                            "macro_f1": macro_f1,
                             "micro_p": micro_p,
                             "micro_r": micro_r,
                             "micro_f1": micro_f1,

@@ -268,13 +268,16 @@ def load_data(path):
                 word = "="
                 label = splt[-1]
 
+            if label != "O":
+                label = "T"
+
             utterance.append(word)
             slot.append(label)
         x.append({"utterance": " ".join(utterance), "slots": " ".join(slot)})
 
-    #     for i, (u, s) in enumerate(zip(utterance, slot)):
-    #         print(f"{s} \t{u}")
-    #     breakpoint()
+        # for i, (u, s) in enumerate(zip(utterance, slot)):
+        #     print(f"{s} \t{u}")
+        # breakpoint()
 
     # for el in x:
     #     utt = el["utterance"]

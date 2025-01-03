@@ -275,7 +275,7 @@ def eval_loop(data, criterion_slots, criterion_intents, model, lang):
             #     print(f"REF: {a}\t HYP: {b}")
 
     try:
-        breakpoint()
+        # breakpoint()
         results = evaluate(ref_slots, hyp_slots)
     except Exception as ex:
         # Sometimes the model predicts a class that is not in REF
