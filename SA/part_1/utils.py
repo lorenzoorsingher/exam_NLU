@@ -28,12 +28,12 @@ class Lang:
 
 class BERTSet(data.Dataset):
 
-    def __init__(self, dataset, lang, unk="unk"):
+    def __init__(self, dataset, lang, model_name, unk="unk"):
 
         self.unk = unk
         self.lang = lang
         # TODO: model name should be a parameter
-        self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.PAD_TOKEN_ID = self.tokenizer.pad_token_id
         self.SLOT_PAD = 0
         self.utterances = []
@@ -170,7 +170,7 @@ def collate_fn(data, pad_token, slot_pad, device):
     return new_item
 
 
-def get_dataloaders(data_path, pad_token, device, lang=None, portion=0.10):
+def get_dataloaders(data_path, pad_token, device, model_name, lang=None, portion=0.10):
 
     tmp_train_raw = load_data(os.path.join(data_path, "laptop14_train.txt"))
     test_raw = load_data(os.path.join(data_path, "laptop14_test.txt"))
@@ -203,9 +203,9 @@ def get_dataloaders(data_path, pad_token, device, lang=None, portion=0.10):
         lang = Lang(words, slots, pad_token, cutoff=0)
 
     # Create our datasets
-    train_dataset = BERTSet(train_raw, lang)
-    dev_dataset = BERTSet(dev_raw, lang)
-    test_dataset = BERTSet(test_raw, lang)
+    train_dataset = BERTSet(train_raw, lang, model_name)
+    dev_dataset = BERTSet(dev_raw, lang, model_name)
+    test_dataset = BERTSet(test_raw, lang, model_name)
 
     # Dataloader instantiations
     train_loader = DataLoader(

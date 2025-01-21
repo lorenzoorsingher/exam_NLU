@@ -10,8 +10,8 @@ if __name__ == "__main__":
     glob_args = get_args()
 
     TRAIN = glob_args["train"]
-    TEST = glob_args["test"]
-    LOG = not glob_args["no_log"]
+    TEST = True  # glob_args["test"]
+    LOG = glob_args["log"]
     FROM_JSON = not glob_args["json"] == ""
 
     # setup logging
@@ -32,23 +32,35 @@ if __name__ == "__main__":
             "lr": 1.5,
             "clip": 5,
             "n_layers": 1,
-            "emb_drop": 0.1,
-            "out_drop": 0.1,
+            "emb_drop": 0,
+            "out_drop": 0,
             "tying": False,
             "var_drop": False,
-            "EPOCHS": 99,
+            "EPOCHS": 250,
             "OPT": "SGD",
             "PAT": 5,
             "tag": "general",
             "arch": "LSTM",
         }
+
+        # TODO: 2 experiments are missing: check all_exp_1_rec.json
         experiments = [
-            {
-                "emb_drop": 0.5,
-                "out_drop": 0.5,
-                "var_drop": True,
-                "tag": "general",
-            }
+            {"lr": 1.5, "arch": "RNN"},
+            {"lr": 2, "arch": "RNN"},
+            {"lr": 2.5, "arch": "RNN"},
+            {"lr": 1.5},
+            {"lr": 2},
+            {"lr": 2.5},
+            {"lr": 1.5, "emb_drop": 0.25, "out_drop": 0},
+            {"lr": 1.5, "emb_drop": 0, "out_drop": 0.25},
+            {"lr": 1.5, "emb_drop": 0.25, "out_drop": 0.25},
+            {"lr": 1.5, "emb_drop": 0.35, "out_drop": 0.35},
+            {"lr": 2, "emb_drop": 0.35, "out_drop": 0.35},
+            {"lr": 2.5, "emb_drop": 0.35, "out_drop": 0.35},
+            {"lr": 0.001, "emb_drop": 0.25, "out_drop": 0.25, "OPT": "AdamW"},
+            {"lr": 0.005, "emb_drop": 0.25, "out_drop": 0.25, "OPT": "AdamW"},
+            {"lr": 0.001, "emb_drop": 0.35, "out_drop": 0.35, "OPT": "AdamW"},
+            {"lr": 0.005, "emb_drop": 0.35, "out_drop": 0.35, "OPT": "AdamW"},
         ]
 
     if TRAIN:

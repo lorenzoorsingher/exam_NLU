@@ -298,12 +298,6 @@ def run_experiments(defaults, experiments, glob_args):
     DATASET_PATH = "SA/part_1/data"
     PAD_TOKEN = 0
 
-    train_loader, dev_loader, test_loader, lang = get_dataloaders(
-        DATASET_PATH, PAD_TOKEN, DEVICE
-    )
-    # breakpoint()
-    out_slot = len(lang.slot2id)
-
     for exp in experiments:
 
         # prepare experiment params
@@ -317,6 +311,11 @@ def run_experiments(defaults, experiments, glob_args):
         runs = args["runs"]
         tag = args["tag"]
         model_name = args["model_name"]
+
+        train_loader, dev_loader, test_loader, lang = get_dataloaders(
+            DATASET_PATH, PAD_TOKEN, DEVICE, model_name=model_name
+        )
+        out_slot = len(lang.slot2id)
 
         run_name, run_path = build_run_name(args, SAVE_PATH)
 

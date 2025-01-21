@@ -450,6 +450,7 @@ def run_tests(defaults, experiments, glob_args):
         acc = res["acc"]
         vd = "x" if args["var_drop"] else ""
         bi = "x" if args["bi"] else ""
+
         data.append(
             [
                 res["name"],
@@ -462,6 +463,7 @@ def run_tests(defaults, experiments, glob_args):
             ]
         )
 
+    print("\n\n")
     print(tabulate(data, headers=headers, tablefmt="orgtbl"))
 
 

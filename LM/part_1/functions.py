@@ -8,12 +8,13 @@ import argparse
 import random
 
 from torch import nn, optim
+from torch.utils.data import DataLoader
 from functools import partial
 from tqdm import tqdm
 from pathlib import Path
 
 from model import LM_MODEL
-from utils import PennTreeBank, DataLoader, Lang, read_file, collate_fn
+from utils import PennTreeBank, Lang, read_file, collate_fn
 
 
 def train_loop(data, optimizer, criterion, model, clip=5):
@@ -385,7 +386,9 @@ def run_tests(defaults, experiments, glob_args):
                 break
 
         if weights_path == "":
+            print("\n\n[TEST] ERROR ")
             print("[TEST] Model not found ", run_name)
+            print("-" * 50)
             continue
 
         model.load_state_dict(torch.load(weights_path, weights_only=True))
@@ -517,13 +520,21 @@ def get_args():
         default=256,
         metavar="",
     )
+    parser.add_argument(
+        "-L",
+        "--log",
+        type=bool,
+        help="Log the run",
+        default=False,
+        metavar="",
+    )
 
     parser.add_argument(
         "-tes",
         "--test-batch-size",
         type=int,
         help="Set the test batch size",
-        default=1024,
+        default=512,
         metavar="",
     )
 
