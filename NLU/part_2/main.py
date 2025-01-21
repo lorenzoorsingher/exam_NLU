@@ -11,8 +11,8 @@ if __name__ == "__main__":
     glob_args = get_args()
 
     TRAIN = glob_args["train"]
-    TEST = glob_args["test"]
-    LOG = not glob_args["no_log"]
+    TEST = True  # glob_args["test"]
+    LOG = glob_args["log"]
     FROM_JSON = not glob_args["json"] == ""
 
     # setup logging
@@ -27,12 +27,40 @@ if __name__ == "__main__":
         json_path = glob_args["json"]
         defaults, experiments = load_experiments(json_path)
     else:
-        defaults = {}
-        experiments = []
+        defaults = {
+            "model_name": "bert-base-uncased",
+            "lr": 0.0001,
+            "EPOCHS": 100,
+            "runs": 4,
+            "PAT": 5,
+            "drop": 0,
+            "pooler": False,
+            "SCH": "none",
+            "sch_in": False,
+            "custom_pooler": False,
+            "OPT": "AdamW",
+            "tag": "bert",
+        }
+
+        experiments = [
+            {"SCH": "none"},
+            {"PAT": 7, "SCH": "plateau"},
+            {"SCH": "cosine"},
+            {"pooler": True},
+            {"drop": 0.25},
+            {"drop": 0.5},
+            {"drop": 0.25, "lr": 0.0001},
+            {"drop": 0.5, "lr": 0.0001},
+            {"drop": 0.25, "lr": 0.0002},
+            {"drop": 0.5, "lr": 0.0002},
+            {"PAT": 7, "SCH": "plateau", "drop": 0.25, "lr": 0.0002},
+            {"PAT": 7, "SCH": "plateau", "drop": 0.5, "lr": 0.0002},
+            {"PAT": 7, "SCH": "cosine", "drop": 0.25, "lr": 0.0002},
+            {"PAT": 7, "SCH": "cosine", "drop": 0.5, "lr": 0.0002},
+        ]
 
     if TRAIN:
         run_experiments(defaults, experiments, glob_args)
 
     if TEST:
         run_tests(defaults, experiments, glob_args)
-        pass

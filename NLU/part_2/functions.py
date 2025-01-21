@@ -623,12 +623,17 @@ def run_tests(defaults, experiments, glob_args):
 
     print(args)
     # print the results in a table
-    headers = ["Name", "Model", "LR", "Drop", "Scheduler", "F1", "Acc"]
+    headers = ["Name", "Model", "LR", "Drop", "Scheduler", "Pooler", "Acc", "F1"]
     data = []
     for res in results:
         args = res["args"]
         f1 = res["f1"]
         acc = res["acc"]
+
+        if args["pooler"]:
+            pooler = "P"
+        else:
+            pooler = " "
 
         data.append(
             [
@@ -637,8 +642,9 @@ def run_tests(defaults, experiments, glob_args):
                 args["lr"],
                 args["drop"],
                 args["SCH"],
-                round(f1, 3),
+                pooler,
                 round(acc, 3),
+                round(f1, 3),
             ]
         )
 
@@ -832,6 +838,15 @@ def get_args():
         "--no-log",
         action="store_true",
         help="Do not log run",
+    )
+
+    parser.add_argument(
+        "-L",
+        "--log",
+        type=bool,
+        help="Log the run",
+        default=False,
+        metavar="",
     )
 
     parser.add_argument(
