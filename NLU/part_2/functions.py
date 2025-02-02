@@ -419,9 +419,11 @@ def run_experiments(defaults, experiments, glob_args):
                         scheduler = optim.lr_scheduler.ReduceLROnPlateau(
                             optimizer, "min", factor=0.2, patience=5
                         )
-                results_dev, intent_res, loss_dev, avg_loss_dev = eval_loop(
-                    dev_loader, criterion_slots, criterion_intents, model, lang
-                )
+
+                # TODO: duplicated eval
+                # results_dev, intent_res, loss_dev, avg_loss_dev = eval_loop(
+                #     dev_loader, criterion_slots, criterion_intents, model, lang
+                # )
                 if SCH == "none":
                     loss, avg_loss = train_loop(
                         train_loader,
