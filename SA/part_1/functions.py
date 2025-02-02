@@ -324,7 +324,9 @@ def run_experiments(defaults, experiments, glob_args):
         EPOCHS = args["EPOCHS"]
         PAT = args["PAT"]
 
-        slot_f1s = []
+        micro_f1s = []
+        micro_ps = []
+        micro_rs = []
 
         print("[TRAIN] Starting ", run_name)
 
@@ -366,18 +368,14 @@ def run_experiments(defaults, experiments, glob_args):
             best_model = None
             for epoch in pbar_epochs:
 
-                # results, _, loss_avg = eval_loop(
-                #     test_loader, criterion_slots, model, lang
-                # )
                 loss, avg_loss = train_loop(
                     train_loader, optimizer, criterion_slots, model, lang
                 )
 
-                # Update the optimizer
                 print("Epoch", epoch, "Loss", round(avg_loss, 3))
 
                 results, _, loss_avg = eval_loop(
-                    test_loader, criterion_slots, model, lang
+                    dev_loader, criterion_slots, model, lang
                 )
                 _, micro_p, micro_r, micro_f1 = results
 
@@ -393,11 +391,8 @@ def run_experiments(defaults, experiments, glob_args):
                     scheduler.step(micro_f1)
                 else:
                     scheduler.step()
-                # pbar_epochs.set_description(
-                #     f"F1 {round_sf(macro_f1,3)} prec {round_sf(micro_p,3)} rec {round_sf(micro_r,3)} loss {round_sf(loss_avg,3)} PAT {patience}"
-                # )
 
-                print(
+                pbar_epochs.set_description(
                     f"F1 {round_sf(micro_f1,3)} prec {round_sf(micro_p,3)} rec {round_sf(micro_r,3)} loss {round_sf(loss_avg,3)} PAT {patience}\n"
                 )
 
@@ -414,60 +409,76 @@ def run_experiments(defaults, experiments, glob_args):
                 if patience < 0:  # Early stopping with patient
                     break
 
-            # model.load_state_dict(best_model.state_dict())
-            # results_dev, intent_res, _, avg_loss_dev = eval_loop(
-            #     dev_loader, criterion_slots, criterion_intents, model, lang
-            # )
-            # results_test, intent_test, _, avg_loss_test = eval_loop(
-            #     test_loader, criterion_slots, criterion_intents, model, lang
-            # )
-            # intent_acc.append(intent_test["accuracy"])
-            # slot_f1s.append(results_test["total"]["f"])
+            model.load_state_dict(best_model.state_dict())
 
-            macro_f1, micro_p, micro_r, micro_f1 = best_res
-            print("BEST RESULTS:")
-            print(
-                f"F1 {round_sf(macro_f1,3)} prec {round_sf(micro_p,3)} rec {round_sf(micro_r,3)} loss {round_sf(loss_avg,3)}"
+            results_dev, _, avg_loss_dev = eval_loop(
+                dev_loader, criterion_slots, model, lang
             )
 
-            # if LOG:
+            results_test, _, avg_loss_test = eval_loop(
+                test_loader, criterion_slots, model, lang
+            )
 
-            # loss_gap = (avg_loss_test - avg_loss_dev) / avg_loss_test
+            _, micro_p_test, micro_r_test, micro_f1_test = results_test
+            print("BEST RESULTS:")
+            print(
+                f"F1 {round_sf(micro_f1,3)} prec {round_sf(micro_p,3)} rec {round_sf(micro_r,3)} loss {round_sf(loss_avg,3)} \n"
+            )
 
-            # wandb.log(
-            #     {
-            #         "val loss": avg_loss_dev,
-            #         "F1": results_dev["total"]["f"],
-            #         "acc": intent_res["accuracy"],
-            #         "test F1": results_test["total"]["f"],
-            #         "test acc": intent_test["accuracy"],
-            #         "loss_gap": loss_gap,
-            #     }
-            # )
+            if LOG:
 
-            # # on last run log the mean and std of the results
-            # if run_n == runs:
+                loss_gap = (avg_loss_test - avg_loss_dev) / avg_loss_test
 
-            #     slot_f1s_mean, slot_f1s_std, intent_acc_mean, intent_acc_std = (
-            #         remove_outliers(slot_f1s, intent_acc)
-            #     )
+                wandb.log(
+                    {
+                        "val loss": avg_loss_dev,
+                        "micro_p": micro_p,
+                        "micro_r": micro_r,
+                        "micro_f1": micro_f1,
+                        "micro_p_test": micro_p_test,
+                        "micro_r_test": micro_r_test,
+                        "micro_f1_test": micro_f1_test,
+                        "loss_gap": loss_gap,
+                    }
+                )
 
-            #     wandb.log(
-            #         {
-            #             "slot_f1s_mean": slot_f1s_mean,
-            #             "slot_f1s_std": slot_f1s_std,
-            #             "intent_acc_mean": intent_acc_mean,
-            #             "intent_acc_std": intent_acc_std,
-            #         }
-            #     )
+                micro_f1s.append(micro_f1_test)
+                micro_ps.append(micro_p_test)
+                micro_rs.append(micro_r_test)
+
+                # on last run log the mean and std of the results
+                if run_n == runs:
+
+                    micro_f1s = np.asarray(micro_f1s)
+                    micro_ps = np.asarray(micro_ps)
+                    micro_rs = np.asarray(micro_rs)
+
+                    micro_p_mean = micro_ps.mean()
+                    micro_r_mean = micro_rs.mean()
+                    micro_f1_mean = micro_f1s.mean()
+
+                    micro_p_std = micro_ps.std()
+                    micro_r_std = micro_rs.std()
+                    micro_f1_std = micro_f1s.std()
+
+                    wandb.log(
+                        {
+                            "micro_p_mean": micro_p_mean,
+                            "micro_r_mean": micro_r_mean,
+                            "micro_f1_mean": micro_f1_mean,
+                            "micro_p_std": micro_p_std,
+                            "micro_r_std": micro_r_std,
+                            "micro_f1_std": micro_f1_std,
+                        }
+                    )
 
             wandb.finish()
 
-        #     model_savefile = {
-        #         "state_dict": model.state_dict(),
-        #         "lang": lang,
-        #     }
-        #     torch.save(model_savefile, run_path + "best.pt")
+            model_savefile = {
+                "state_dict": model.state_dict(),
+                "lang": lang,
+            }
+            torch.save(model_savefile, run_path + "best.pt")
 
         # slot_f1s = np.asarray(slot_f1s)
         # intent_acc = np.asarray(intent_acc)
@@ -531,11 +542,9 @@ def run_tests(defaults, experiments, glob_args):
         )
 
         out_slot = len(lang.slot2id)
-        out_int = len(lang.intent2id)
 
         model = MyBert(
             out_slot,
-            out_int,
             drop,
             model_name,
         ).to(DEVICE)
@@ -545,33 +554,31 @@ def run_tests(defaults, experiments, glob_args):
         model.to(DEVICE)
 
         criterion_slots = nn.CrossEntropyLoss(ignore_index=PAD_TOKEN)
-        criterion_intents = nn.CrossEntropyLoss()
 
-        results_test, intent_test, _, avg_loss_test = eval_loop(
-            test_loader, criterion_slots, criterion_intents, model, lang
+        results_test, _, avg_loss_test = eval_loop(
+            test_loader, criterion_slots, model, lang
         )
+
+        _, micro_p_test, micro_r_test, micro_f1_test = results_test
 
         results.append(
             {
                 "args": args,
-                "f1": results_test["total"]["f"],
-                "acc": intent_test["accuracy"],
                 "name": run_name,
+                "f1": micro_f1_test,
+                "prec": micro_p_test,
+                "rec": micro_r_test,
             }
         )
 
     # print the results in a table
-    headers = ["Name", "Model", "LR", "Drop", "Scheduler", "Pooler", "Acc", "F1"]
+    headers = ["Name", "Model", "LR", "Drop", "Scheduler", "F1", "Prec", "Rec"]
     data = []
     for res in results:
         args = res["args"]
         f1 = res["f1"]
-        acc = res["acc"]
-
-        if args["pooler"]:
-            pooler = "P"
-        else:
-            pooler = " "
+        prec = res["prec"]
+        rec = res["rec"]
 
         data.append(
             [
@@ -580,9 +587,9 @@ def run_tests(defaults, experiments, glob_args):
                 args["lr"],
                 args["drop"],
                 args["SCH"],
-                pooler,
-                round(acc, 3),
                 round(f1, 3),
+                round(prec, 3),
+                round(rec, 3),
             ]
         )
 
