@@ -66,6 +66,8 @@ class BERTSet(data.Dataset):
         wprev = None
         for i, wid in enumerate(word_ids[1:-1]):
             wstart = encoded.word_to_chars(wid).start
+            # if prev word is not a space and the previous word is different from the current word
+            # fix the word id (might happen in case of punctuation)
             if sentence[wstart - 1] != " " and wprev != wid and i > 0:
                 # print(f"BET {wid} -> {wprev}")
                 word_ids[i + 1] = wprev
@@ -73,10 +75,14 @@ class BERTSet(data.Dataset):
             else:
                 wprev = wid
 
+        # empty list for the slots
         slots_align = []
         wprev = None
         slots_idx = 0
         for i, wid in enumerate(word_ids[1:-1]):
+
+            # if the word id is different from the previous word id append slot
+            # else it's a subword so append the pad token
             if wid != wprev:
                 slots_align.append(slots[slots_idx])
                 slots_idx += 1
@@ -84,17 +90,17 @@ class BERTSet(data.Dataset):
             else:
                 slots_align.append(self.SLOT_PAD)
 
+        # aligned slots with padding on subwords and special tokens
         slots_align = [self.SLOT_PAD] + slots_align + [self.SLOT_PAD]
         gt_slots = [self.lang.id2slot[elem] for elem in slots_align]
         slots_align = torch.LongTensor(slots_align)
+
         # for tkn, wid, slot in zip(tokens, word_ids, gt_slots):
         #     print(f"{tkn} \t{wid} \t{slot}")
         # print("\n\n")
         # for tkn, wid, slot in zip(tokens, word_ids, gt_slots):
         #     print(f"{wid} \t{slot} \t{tkn} \t")
 
-        # breakpoint()
-        # breakpoint()
         sample = {
             "utt": utt,
             "att": att,
