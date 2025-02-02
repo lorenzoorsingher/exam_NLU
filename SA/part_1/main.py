@@ -11,8 +11,8 @@ if __name__ == "__main__":
     glob_args = get_args()
 
     TRAIN = glob_args["train"]
-    TEST = glob_args["test"]
-    LOG = not glob_args["no_log"]
+    TEST = True  # glob_args["test"]
+    LOG = glob_args["log"]
     FROM_JSON = not glob_args["json"] == ""
 
     # setup logging
@@ -35,4 +35,3 @@ if __name__ == "__main__":
 
     if TEST:
         run_tests(defaults, experiments, glob_args)
-        pass

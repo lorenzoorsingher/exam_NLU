@@ -94,7 +94,7 @@ def run_experiments(defaults, experiments, glob_args):
     TRAIN_BS = glob_args["train_batch_size"]
     DEV_BS = glob_args["dev_batch_size"]
     TEST_BS = glob_args["test_batch_size"]
-    LOG = not glob_args["no_log"]
+    LOG = glob_args["log"]
 
     SAVE_PATH = glob_args["save_path"]
     DEVICE = "cuda:0"  # it can be changed with 'cpu' if you do not have a gpu

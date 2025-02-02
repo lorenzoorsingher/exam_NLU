@@ -292,7 +292,7 @@ def run_experiments(defaults, experiments, glob_args):
     - glob_args (dict): global arguments
     """
 
-    LOG = not glob_args["no_log"]
+    LOG = glob_args["log"]
     SAVE_PATH = glob_args["save_path"]
     DEVICE = "cuda:0"  # it can be changed with 'cpu' if you do not have a gpu
     DATASET_PATH = "SA/part_1/data"
@@ -488,7 +488,7 @@ def run_tests(defaults, experiments, glob_args):
 
     SAVE_PATH = glob_args["save_path"]
     DEVICE = "cuda:0"  # it can be changed with 'cpu' if you do not have a gpu
-    DATASET_PATH = "NLU/part_2/dataset"
+    DATASET_PATH = "SA/part_1/data"
     PAD_TOKEN = 0
 
     results = []
@@ -500,7 +500,6 @@ def run_tests(defaults, experiments, glob_args):
 
         drop = args["drop"]
         model_name = args["model_name"]
-        pooler = args["pooler"]
 
         run_name, run_path = build_run_name(args, SAVE_PATH)
         run_name = run_name[:-5]
@@ -517,7 +516,7 @@ def run_tests(defaults, experiments, glob_args):
                     weights_path = SAVE_PATH + path + "/best.pt"
                     print("[TEST] Loading ", weights_path)
                 break
-
+        # breakpoint()
         if weights_path == "":
             print("[TEST] Model not found ", run_name)
             continue
@@ -528,7 +527,7 @@ def run_tests(defaults, experiments, glob_args):
         lang = model_savefile["lang"]
 
         _, _, test_loader, _ = get_dataloaders(
-            DATASET_PATH, PAD_TOKEN, DEVICE, lang=lang
+            DATASET_PATH, PAD_TOKEN, DEVICE, model_name=model_name, lang=lang
         )
 
         out_slot = len(lang.slot2id)
@@ -539,7 +538,6 @@ def run_tests(defaults, experiments, glob_args):
             out_int,
             drop,
             model_name,
-            pooler,
         ).to(DEVICE)
 
         # load the weights
@@ -549,27 +547,31 @@ def run_tests(defaults, experiments, glob_args):
         criterion_slots = nn.CrossEntropyLoss(ignore_index=PAD_TOKEN)
         criterion_intents = nn.CrossEntropyLoss()
 
-        # results_test, intent_test, _, avg_loss_test = eval_loop(
-        #     test_loader, criterion_slots, criterion_intents, model, lang
-        # )
+        results_test, intent_test, _, avg_loss_test = eval_loop(
+            test_loader, criterion_slots, criterion_intents, model, lang
+        )
 
-        # results.append(
-        #     {
-        #         "args": args,
-        #         "f1": results_test["total"]["f"],
-        #         "acc": intent_test["accuracy"],
-        #         "name": run_name,
-        #     }
-        # )
+        results.append(
+            {
+                "args": args,
+                "f1": results_test["total"]["f"],
+                "acc": intent_test["accuracy"],
+                "name": run_name,
+            }
+        )
 
-    print(args)
     # print the results in a table
-    headers = ["Name", "Model", "LR", "Drop", "Scheduler", "F1", "Acc"]
+    headers = ["Name", "Model", "LR", "Drop", "Scheduler", "Pooler", "Acc", "F1"]
     data = []
     for res in results:
         args = res["args"]
         f1 = res["f1"]
         acc = res["acc"]
+
+        if args["pooler"]:
+            pooler = "P"
+        else:
+            pooler = " "
 
         data.append(
             [
@@ -578,8 +580,9 @@ def run_tests(defaults, experiments, glob_args):
                 args["lr"],
                 args["drop"],
                 args["SCH"],
-                round(f1, 3),
+                pooler,
                 round(acc, 3),
+                round(f1, 3),
             ]
         )
 
@@ -710,6 +713,15 @@ def get_args():
         "--no-log",
         action="store_true",
         help="Do not log run",
+    )
+
+    parser.add_argument(
+        "-L",
+        "--log",
+        type=bool,
+        help="Log the run",
+        default=False,
+        metavar="",
     )
 
     parser.add_argument(
