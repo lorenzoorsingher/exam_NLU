@@ -58,7 +58,7 @@ class BERTSet(data.Dataset):
 
         encoded = self.tokenizer(sentence, return_tensors="pt")
         utt = encoded["input_ids"][0]
-        typ = encoded["token_type_ids"][0]
+        # typ = encoded["token_type_ids"][0]
         att = encoded["attention_mask"][0]
         tokens = encoded.tokens()
         word_ids = encoded.word_ids()
