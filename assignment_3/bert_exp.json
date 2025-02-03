@@ -12,6 +12,9 @@
 
   [
     {
+      "lr": 0.0001
+    },
+    {
       "lr": 0.0001,
       "drop": 0.3
     },
@@ -23,7 +26,12 @@
       "drop": 0.3
     },
     {
-      "lr": 0.0001
+      "model_name": "roberta-base",
+      "lr": 0.0002
+    },
+    {
+      "model_name": "cardiffnlp/twitter-roberta-base-emotion",
+      "lr": 0.0002
     }
   ]
 ]

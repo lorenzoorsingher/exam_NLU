@@ -358,7 +358,7 @@ def run_experiments(defaults, experiments, glob_args):
                 wandb.init(
                     project="NLU_assignment3",
                     name=run_name + "_" + str(run_n),
-                    config=args,
+                    config=args | {"run": run_n},
                 )
             best_f1 = 0
             best_res = None
