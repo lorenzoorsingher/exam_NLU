@@ -627,10 +627,7 @@ def build_run_name(args, SAVE_PATH):
     - run_path (str): path to save the model
     """
 
-    if args["model_name"].split("-")[0] == "bert":
-        run_name = "BERT"
-    else:
-        run_name = "ROBERTA"
+    run_name = args["model_name"].split("-")[0].replace("/", "").upper()
 
     run_name += "_" + str(args["lr"])[2:] + "_" + str(round(args["drop"] * 100))
 
@@ -641,7 +638,7 @@ def build_run_name(args, SAVE_PATH):
 
     run_name += "_" + generate_id(4)
     run_path = SAVE_PATH + run_name + "/"
-
+    breakpoint()
     if os.path.exists(run_path):
         while os.path.exists(run_path):
             run_name += "_" + generate_id(5)
