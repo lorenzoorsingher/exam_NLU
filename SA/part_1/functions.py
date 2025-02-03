@@ -638,7 +638,7 @@ def build_run_name(args, SAVE_PATH):
 
     run_name += "_" + generate_id(4)
     run_path = SAVE_PATH + run_name + "/"
-    breakpoint()
+
     if os.path.exists(run_path):
         while os.path.exists(run_path):
             run_name += "_" + generate_id(5)
