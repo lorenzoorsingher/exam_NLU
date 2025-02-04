@@ -73,3 +73,8 @@ WANDB_SECRET="{YOUR_KEY}"
 ```bash
 python main.py --train -L true
 ```
+
+### Authors
+
+- [Lorenzo Orsingher](https://github.com/lorenzoorsingher)
+- [GitHub repo](https://github.com/lorenzoorsingher/exam_NLU)
