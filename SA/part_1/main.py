@@ -27,8 +27,26 @@ if __name__ == "__main__":
         json_path = glob_args["json"]
         defaults, experiments = load_experiments(json_path)
     else:
-        defaults = {}
-        experiments = []
+        defaults = {
+            "model_name": "bert-base-uncased",
+            "lr": 0.0001,
+            "EPOCHS": 100,
+            "runs": 4,
+            "PAT": 10,
+            "drop": 0,
+            "SCH": "none",
+            "tag": "",
+        }
+        experiments = [
+            {"lr": 0.0001},
+            {"lr": 0.0001, "drop": 0.3},
+            {"lr": 0.0002},
+            {"lr": 0.0002, "drop": 0.3},
+            {"model_name": "roberta-base"},
+            {"model_name": "cardiffnlp/twitter-roberta-base-emotion"},
+            {"model_name": "roberta-base", "drop": 0.3},
+            {"model_name": "cardiffnlp/twitter-roberta-base-emotion", "drop": 0.3},
+        ]
 
     if TRAIN:
         run_experiments(defaults, experiments, glob_args)
