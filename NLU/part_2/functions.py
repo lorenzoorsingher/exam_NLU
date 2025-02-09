@@ -20,6 +20,14 @@ from utils import get_dataloaders
 from model import MyBert
 
 
+class MockScheduler:
+    def __init__(self):
+        pass
+
+    def step(self):
+        pass
+
+
 def train_loop(data, optimizer, criterion_slots, criterion_intents, model, clip=5):
     """
     Function to train the model
@@ -357,31 +365,21 @@ def run_experiments(defaults, experiments, glob_args):
                 pooler,
             ).to(DEVICE)
 
-            # trainable_params = []
-            # for name, param in model.named_parameters():
-            #     # if "pooler" in name:
-            #     #     param.requires_grad = args["custom_pooler"]
-
-            #     if "attention" in name:
-            #         print(name, param.requires_grad)
-            #         trainable_params.append(param)
-
-            # breakpoint()
-
             if OPT == "Adam":
                 optimizer = optim.Adam(model.parameters(), lr=lr)
             elif OPT == "AdamW":
                 optimizer = optim.AdamW(model.parameters(), lr=lr)
 
-            if not sch_in:
-                if SCH == "cosine":
-                    scheduler = optim.lr_scheduler.CosineAnnealingLR(
-                        optimizer, T_max=30  # EPOCHS
-                    )
-                if SCH == "plateau":
-                    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-                        optimizer, "min", factor=0.2, patience=PAT // 2
-                    )
+            if SCH == "cosine":
+                scheduler = optim.lr_scheduler.CosineAnnealingLR(
+                    optimizer, T_max=30  # EPOCHS
+                )
+            elif SCH == "plateau":
+                scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+                    optimizer, "max", factor=0.2, patience=PAT // 2
+                )
+            else:
+                scheduler = MockScheduler()
 
             criterion_slots = nn.CrossEntropyLoss(ignore_index=PAD_TOKEN)
             criterion_intents = nn.CrossEntropyLoss()
@@ -410,48 +408,13 @@ def run_experiments(defaults, experiments, glob_args):
             best_model = None
             for epoch in pbar_epochs:
 
-                if sch_in:
-                    if SCH == "cosine":
-                        scheduler = optim.lr_scheduler.CosineAnnealingLR(
-                            optimizer, T_max=len(train_loader)  # EPOCHS
-                        )
-                    if SCH == "plateau":
-                        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-                            optimizer, "min", factor=0.2, patience=5
-                        )
-
-                # TODO: duplicated eval
-                # results_dev, intent_res, loss_dev, avg_loss_dev = eval_loop(
-                #     dev_loader, criterion_slots, criterion_intents, model, lang
-                # )
-                if SCH == "none":
-                    loss, avg_loss = train_loop(
-                        train_loader,
-                        optimizer,
-                        criterion_slots,
-                        criterion_intents,
-                        model,
-                    )
-                else:
-
-                    if sch_in:
-                        loss, avg_loss = train_loop_sch_in(
-                            train_loader,
-                            optimizer,
-                            scheduler,
-                            criterion_slots,
-                            criterion_intents,
-                            model,
-                        )
-                    else:
-                        loss, avg_loss = train_loop_sch(
-                            train_loader,
-                            optimizer,
-                            scheduler,
-                            criterion_slots,
-                            criterion_intents,
-                            model,
-                        )
+                loss, avg_loss = train_loop(
+                    train_loader,
+                    optimizer,
+                    criterion_slots,
+                    criterion_intents,
+                    model,
+                )
 
                 results_dev, intent_res, loss_dev, avg_loss_dev = eval_loop(
                     dev_loader, criterion_slots, criterion_intents, model, lang
@@ -464,6 +427,11 @@ def run_experiments(defaults, experiments, glob_args):
                     best_model = deepcopy(model)
                 else:
                     patience -= 1
+
+                if SCH == "plateau":
+                    scheduler.step(f1)
+                else:
+                    scheduler.step()
 
                 pbar_epochs.set_description(
                     f"F1 {round_sf(f1,3)} acc {round_sf(acc,3)} loss {round_sf(avg_loss_dev,3)} PAT {patience}"

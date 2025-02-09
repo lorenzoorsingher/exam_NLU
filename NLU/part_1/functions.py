@@ -80,7 +80,11 @@ def eval_loop(data, criterion_slots, criterion_intents, model, lang):
     # softmax = nn.Softmax(dim=1) # Use Softmax if you need the actual probability
     with torch.no_grad():  # It used to avoid the creation of computational graph
         for sample in data:
+
+            # compute output
             slots, intents = model(sample["utterances"], sample["slots_len"])
+
+            # compute losses
             loss_intent = criterion_intents(intents, sample["intents"])
             loss_slot = criterion_slots(slots, sample["y_slots"])
             loss = loss_intent + loss_slot
@@ -96,6 +100,9 @@ def eval_loop(data, criterion_slots, criterion_intents, model, lang):
 
             # Slot inference
             output_slots = torch.argmax(slots, dim=1)
+
+            # For each sequence in the batch we need to decode the output
+            # and the ground truth
             for id_seq, seq in enumerate(output_slots):
                 length = sample["slots_len"].tolist()[id_seq]
                 utt_ids = sample["utterance"][id_seq][:length].tolist()
@@ -103,6 +110,8 @@ def eval_loop(data, criterion_slots, criterion_intents, model, lang):
                 gt_slots = [lang.id2slot[elem] for elem in gt_ids[:length]]
                 utterance = [lang.id2word[elem] for elem in utt_ids]
                 to_decode = seq[:length].tolist()
+
+                # recover words and slots for GT e prediction
                 ref_slots.append(
                     [(utterance[id_el], elem) for id_el, elem in enumerate(gt_slots)]
                 )
@@ -114,11 +123,9 @@ def eval_loop(data, criterion_slots, criterion_intents, model, lang):
         results = evaluate(ref_slots, hyp_slots)
     except Exception as ex:
         # Sometimes the model predicts a class that is not in REF
-        # print("Warning:", ex)
         print("Class is not in REF")
         ref_s = set([x[1] for x in ref_slots])
         hyp_s = set([x[1] for x in hyp_slots])
-        # print(hyp_s.difference(ref_s))
         results = {"total": {"f": 0}}
 
     report_intent = classification_report(
