@@ -1,4 +1,5 @@
 import os
+from tabulate import tabulate
 import torch
 import copy
 import json
@@ -223,6 +224,7 @@ def run_experiments(defaults, experiments, glob_args):
 
             if epoch % 1 == 0:
 
+                # copy and save optimizer state for AverageSGD
                 if "t0" in optimizer.param_groups[0]:
                     tmp = {}
                     for prm in model.parameters():
@@ -243,15 +245,6 @@ def run_experiments(defaults, experiments, glob_args):
                     best_model = copy.deepcopy(model).to("cpu")
                 else:
                     patience -= 1
-
-                # pbar.set_description(
-                #     "PPL: "
-                #     + str(round(ppl_dev, 2))
-                #     + " best: "
-                #     + str(round(best_ppl, 2))
-                #     + " P: "
-                #     + str(patience)
-                # )
 
                 pbar.set_description(
                     f"PPL: {round(ppl_dev, 2)} best: {round(best_ppl, 2)} P: {patience}"
@@ -276,7 +269,7 @@ def run_experiments(defaults, experiments, glob_args):
                     )
                     patience = PAT
                 else:
-                    break  # Not nice but it keeps the code clean
+                    break
 
         checkpoint_path = run_path + "epoch_" + ("0000" + str(epoch))[-4:] + ".pt"
         torch.save(model.state_dict(), checkpoint_path)
@@ -398,14 +391,33 @@ def run_tests(defaults, experiments, glob_args):
         results.append([args, test_ppl])
 
     print("\n\n\nFinal Results: \n")
-    print("PPL\tmodel\tdrop\tlr\tOPT\tVD\tWT")
+
+    # print the results in a table
+    headers = ["model", "drop", "lr", "OPT", "VD", "WT", "PPL"]
+    data = []
     for args, ppl in results:
 
         emb_drop = int(args["emb_drop"] * 100)
         out_drop = int(args["out_drop"] * 100)
-        print(
-            f"{round(ppl, 2)}\t{args['arch']}\t{emb_drop}+{out_drop}\t{args['lr']}\t{args['OPT']}\t{args['var_drop']}\t{args['tying']}"
+        arch = args["arch"]
+        lr = args["lr"]
+        opt = args["OPT"]
+        var_drop = "x" if args["var_drop"] else ""
+        tying = "x" if args["tying"] else ""
+
+        data.append(
+            [
+                arch,
+                f"{emb_drop}+{out_drop}",
+                lr,
+                opt,
+                var_drop,
+                tying,
+                round(ppl, 3),
+            ]
         )
+
+    print(tabulate(data, headers=headers, tablefmt="orgtbl"))
 
 
 def init_weights(mat):

@@ -3,6 +3,10 @@ from torch import nn
 
 
 class VarDropout(nn.Module):
+    """
+    Variational Dropout, it is a dropout that applies the same mask to all the elements of the same sequence
+    """
+
     def __init__(self, p=0.1):
         super(VarDropout, self).__init__()
         self.p = p
@@ -12,10 +16,16 @@ class VarDropout(nn.Module):
         if not self.training:
             return x
 
+        # create mask of shape [BATCH, EMB]
         rand_mask = torch.rand((x.shape[::2]), requires_grad=True, device="cuda")
+
+        # binarize and unnsqueze mask mask [BATCH, 1, EMB]
         expanded_mask = (rand_mask > self.p).int().unsqueeze(1)
+
+        # repeat mask to match input shape [BATCH, SEQ, EMB]
         full_mask = expanded_mask.repeat(1, x.shape[1], 1)
 
+        # apply and normalize
         return (x * full_mask) * (1.0 / (1.0 - self.p))
 
 
